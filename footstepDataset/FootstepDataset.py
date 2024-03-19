@@ -1,6 +1,4 @@
-import pandas as pd
 from torch.utils.data import Dataset
-
 from featureExtraction.FeatureExtractor import FeatureExtractor
 
 
@@ -9,22 +7,26 @@ class FootstepDataset(Dataset):
         featureExtractor = FeatureExtractor()
         gen = featureExtractor.extract(startPath)
 
-        # Create an array and later convert it to dataframe for easier recollection of data.
-        # This is the fastest way according to this stackoverflow post: https://stackoverflow.com/questions/10715965/create-a-pandas-dataframe-by-appending-one-row-at-a-time/17496530#17496530
-        dataArray = []
+        # Create an array and store the data as (feature, labelNumeric)
+        self.dataArray = []
 
+        # Convert every file into a signal and labels
         while True:
             try:
+                # Get all the extracted features and labels in string form
                 signal, label = next(gen)
+
+                # If the labels are equal, the label is 1
                 labelNum = 1 if label == trueLabel else 0
-                dataArray.append([signal, labelNum])
+
+                # Append the acquired data to the array
+                self.dataArray.append([signal, labelNum])
             except StopIteration:
                 break
-        self.dataframe = pd.DataFrame(dataArray, columns=["signal", "label"])
 
     def __getitem__(self, index):
-        row = self.dataframe.iloc[index]
-        return row["signal"], row["label"]
+        row = self.dataArray[index]
+        return row[0], row[1]
 
     def __len__(self):
-        return len(self.dataframe)
+        return len(self.dataArray)
