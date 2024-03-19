@@ -5,12 +5,7 @@ import torch
 
 class FeatureExtractor:
 
-    def __init__(self, startPath: str, outputPath: str, funcPath: str = "extractFeatures.m"):
-        # Path were the wav file is located
-        self.startPath = startPath
-
-        self.outputPath = outputPath
-
+    def __init__(self, funcPath: str = "extractFeatures.m"):
         # Get the directory where this file is locate and add the path to the function to it
         self.funcPath = os.path.dirname(os.path.realpath(__file__)) + "\\" + funcPath
 
@@ -26,11 +21,12 @@ class FeatureExtractor:
         self.eng.cd(os.path.dirname(os.path.realpath(__file__)))
 
     # Extract all the .wav files and convert them into a readable file
-    def extract(self):
-        for file in os.listdir(self.startPath):
+    def extract(self, startPath: str):
+        for file in os.listdir(startPath):
             if file.endswith(".wav"):
                 # Combine filepath with current file
-                filePath = self.startPath + "\\" + file
+                filePath = startPath + "\\" + file
+                label = file.split(".wav")[0].split("_")[0]
 
                 # Send data to Matlab and receive the transformed signal
                 result = self.eng.extractFeatures(filePath)
@@ -38,4 +34,4 @@ class FeatureExtractor:
                 # Convert to tensor and flatten to remove 1 dimension
                 torchResult = torch.flatten(torch.Tensor(result))
 
-                yield torchResult
+                yield torchResult, label
