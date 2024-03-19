@@ -1,8 +1,5 @@
 import os.path
 import matlab.engine
-import wave
-
-import numpy as np
 import torch
 
 
@@ -24,7 +21,7 @@ class FeatureExtractor:
 
         # Matlab engine for running the necessary functions
         self.eng = matlab.engine.start_matlab()
-        
+
         # Set matlab directory to current directory
         self.eng.cd(os.path.dirname(os.path.realpath(__file__)))
 
