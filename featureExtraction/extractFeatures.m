@@ -2,6 +2,15 @@ function extracted = extractFeatures(filepath)
     % Open the sound
     [val, fs] = audioread(filepath);
 
+    % We want to get the same size for every sample: 4 seconds
+    % get 2 seconds of points with sample rate fs
+    points_2s = 2*fs;
+
+    % Get the middle point of the sample
+    middle_point = floor(length(val) / 2);
+
+    val = val(middle_point-points_2s:middle_point+points_2s);
+
     % Filter the sound a first time using a butterworth lowpass filter.
     fc = 50;
     [b,a]= butter(4,fc/(fs/2),"low");

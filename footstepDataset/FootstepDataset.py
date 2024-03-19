@@ -5,7 +5,7 @@ from featureExtraction.FeatureExtractor import FeatureExtractor
 
 
 class FootstepDataset(Dataset):
-    def __init__(self, startPath: str):
+    def __init__(self, startPath: str, trueLabel: str):
         featureExtractor = FeatureExtractor()
         gen = featureExtractor.extract(startPath)
 
@@ -16,7 +16,8 @@ class FootstepDataset(Dataset):
         while True:
             try:
                 signal, label = next(gen)
-                dataArray.append([signal, label])
+                labelNum = 1 if label == trueLabel else 0
+                dataArray.append([signal, labelNum])
             except StopIteration:
                 break
         self.dataframe = pd.DataFrame(dataArray, columns=["signal", "label"])
