@@ -13,7 +13,7 @@ if __name__ == '__main__':
     dataset = FootstepDataset(path, "Ann")
     print(dataset.__getitem__(2))
 
-    dataloader = DataLoader(dataset, batch_size=2, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=3, shuffle=True)
     train_features, train_labels = next(iter(dataloader))
     print(f"Feature batch shape: {train_features.size()}")
     print(f"Labels batch shape: {train_labels.size()}")
