@@ -5,7 +5,7 @@ import torch
 
 class FeatureExtractor:
 
-    def __init__(self, funcPath: str = "extractFeatures.m"):
+    def __init__(self, funcPath: str = "matlabFunctions/extractFeatures.m"):
         # Get the directory where this file is locate and add the path to the function to it
         self.funcPath = os.path.dirname(os.path.realpath(__file__)) + "\\" + funcPath
 
