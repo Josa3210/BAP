@@ -2,10 +2,12 @@ import os.path
 import matlab.engine
 import torch
 
+from featureExtraction.FeatureCacher import FeatureCacher
+
 
 class FeatureExtractor:
 
-    def __init__(self, funcPath: str = "extractFeatures.m"):
+    def __init__(self, funcPath: str = "matlabFunctions/extractFeatures.m"):
         # Get the directory where this file is locate and add the path to the function to it
         self.funcPath = os.path.dirname(os.path.realpath(__file__)) + "\\" + funcPath
 
@@ -18,7 +20,9 @@ class FeatureExtractor:
         self.eng = matlab.engine.start_matlab()
 
         # Set matlab directory to current directory
-        self.eng.cd(os.path.dirname(os.path.realpath(__file__)))
+        self.eng.cd(os.path.dirname(os.path.realpath(__file__)) + "\\matlabFunctions")
+
+        self.cacher = FeatureCacher()
 
     # Extract all the .wav files and convert them into a readable file
     def extract(self, startPath: str):
@@ -26,12 +30,28 @@ class FeatureExtractor:
             if file.endswith(".wav"):
                 # Combine filepath with current file
                 filePath = startPath + "\\" + file
+
+                # Extract label
                 label = file.split(".wav")[0].split("_")[0]
 
-                # Send data to Matlab and receive the transformed signal
-                result = self.eng.extractFeatures(filePath)
+                # Check if there is a cached version
+                filePathCache = filePath.split(".")[0] + ".cache"
+                if os.path.exists(filePathCache):
+                    # Read data from cache file
+                    torchResult = self.cacher.load(filePathCache)
 
-                # Convert to tensor and flatten to remove 1 dimension
-                torchResult = torch.flatten(torch.Tensor(result))
+                    print(f"Reading from {filePathCache}")
+
+                else:
+                    # Send data to Matlab and receive the transformed signal
+                    result = self.eng.extractFeatures(filePath)
+
+                    # Convert to tensor and flatten to remove 1 dimension
+                    torchResult = torch.flatten(torch.Tensor(result))
+
+                    # Create a cache file for future extraction
+                    self.cacher.cache(torchResult, filePathCache)
+
+                    print(f"Reading from {filePath}")
 
                 yield torchResult, label
