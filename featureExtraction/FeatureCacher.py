@@ -1,9 +1,9 @@
+import torch
+
+
 class FeatureCacher:
-    def __init__(self):
-        pass
-
     def cache(self, result, cache):
-        pass
+        torch.save(result, cache)
 
-    def load(self, filePathCache):
-        pass
+    def load(self, filePathCache) -> torch.Tensor:
+        return torch.load(filePathCache)

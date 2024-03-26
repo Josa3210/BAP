@@ -20,7 +20,7 @@ class FeatureExtractor:
         self.eng = matlab.engine.start_matlab()
 
         # Set matlab directory to current directory
-        self.eng.cd(os.path.dirname(os.path.realpath(__file__)))
+        self.eng.cd(os.path.dirname(os.path.realpath(__file__)) + "\\matlabFunctions")
 
         self.cacher = FeatureCacher()
 
@@ -40,6 +40,8 @@ class FeatureExtractor:
                     # Read data from cache file
                     torchResult = self.cacher.load(filePathCache)
 
+                    print(f"Reading from {filePathCache}")
+
                 else:
                     # Send data to Matlab and receive the transformed signal
                     result = self.eng.extractFeatures(filePath)
@@ -49,5 +51,7 @@ class FeatureExtractor:
 
                     # Create a cache file for future extraction
                     self.cacher.cache(torchResult, filePathCache)
+
+                    print(f"Reading from {filePath}")
 
                 yield torchResult, label
