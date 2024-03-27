@@ -1,5 +1,6 @@
 .idea/
 data/
+MNISTdata/
 # dotenv
 .env
 
