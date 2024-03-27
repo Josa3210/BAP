@@ -1,29 +1,76 @@
 import os
 
+import PIL.Image
 import torch
+import torchvision.datasets
 from sklearn.model_selection import KFold
 from torch import nn
-from torch.utils.data import SubsetRandomSampler
+from torch.utils.data import SubsetRandomSampler, ConcatDataset
+from torchvision import datasets
+from torchvision.transforms import transforms
 
 from footstepDataset.FootstepDataset import FootstepDataset
+
+
+class MnistNN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.ConvLayers = nn.Sequential(
+            nn.Conv2d(in_channels=1, out_channels=5, kernel_size=3),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=5, out_channels=10, kernel_size=3),
+            nn.ReLU()
+        )
+
+        self.LinLayers = nn.Sequential(
+            nn.Linear(10 * 24 * 24, 265),
+            nn.ReLU(),
+            nn.Linear(265, 10),
+            nn.Softmax(dim=1)
+        )
+
+    def forward(self, x: torch.Tensor):
+        # print(x.size())
+        x = self.ConvLayers.forward(x)
+        # print(x.size())
+        x = torch.flatten(x, 1)
+        # print(x.size())
+        x = self.LinLayers(x)
+        return x
+
+
+class CustomMNISTDataset(torch.utils.data.Dataset):
+    def __init__(self, data: torchvision.datasets.MNIST):
+        self.data = data.data
+        self.labels = data.targets
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index):
+        img, label = self.data[index].to(torch.float).unsqueeze(0), self.labels[index]
+        return img, label
 
 
 def trainNN():
     # Parameters
     folds = 5
-    epochs = 1
+    epochs = 3
     lr = 1e-4
     lossFunction = nn.CrossEntropyLoss()
 
     # Get dataset
-    currentPath = r"D:\_Opslag\GitKraken\BAP"
-    path = currentPath + r"\data"
+    # currentPath = r"D:\_Opslag\GitKraken\BAP"
+    # path = currentPath + r"\data"
+    # dataset = FootstepDataset(path, "Ann")
 
-    dataset = FootstepDataset(path, "Ann")
-    kfold = KFold(n_splits=folds, shuffle=True)
-    results = []
+    mnistTrainSet = datasets.MNIST(root='./MNISTdata', train=True, download=True, transform=None)
+    dataset = CustomMNISTDataset(mnistTrainSet)
 
-    for fold, (train_ids, test_ids) in enumerate(kfold.split(dataset)):
+    kFold = KFold(n_splits=folds, shuffle=True)
+    confMatrix = {"TP": [0] * folds, "FP": [0] * folds, "FN": [0] * folds, "TN": [0] * folds}
+
+    for fold, (train_ids, test_ids) in enumerate(kFold.split(dataset)):
         # Print
         print(f'\nFOLD {fold}')
         print('--------------------------------')
@@ -38,15 +85,15 @@ def trainNN():
         # Define data loaders for training and testing data in this fold
         trainloader = torch.utils.data.DataLoader(
             dataset,
-            batch_size=10, sampler=trainSubSampler)
+            batch_size=64, sampler=trainSubSampler)
         testloader = torch.utils.data.DataLoader(
             dataset,
-            batch_size=10, sampler=testSubSampler)
+            batch_size=64, sampler=testSubSampler)
 
         print('--------------------------------\n')
 
         # Get the network
-        network: nn.Module = None
+        network: nn.Module = MnistNN()
         optimizer: torch.optim.Optimizer = torch.optim.Adam(network.parameters(), lr=lr)
 
         # Start training epochs
@@ -59,9 +106,9 @@ def trainNN():
             currentLoss = 0.
 
             # Iterate over the DataLoader for training data
-            for i, data in enumerate(trainloader, 0):
+            for i, batch in enumerate(trainloader):
                 # Get inputs
-                inputs, targets = data
+                inputs, targets = batch
 
                 # Zero the gradients
                 optimizer.zero_grad()
@@ -81,14 +128,16 @@ def trainNN():
                 # Print statistics
                 currentLoss += loss.item()
 
+                if i % 500 == 0:
+                    print(f"{i} batches of the {len(trainloader)} processed")
         # Evaluation for this fold
         correct, total = 0, 0
         with torch.no_grad():
 
             # Iterate over the test data and generate predictions
-            for i, data in enumerate(testloader, 0):
+            for i, batch in enumerate(testloader):
                 # Get inputs
-                inputs, targets = data
+                inputs, targets = batch
 
                 # Generate outputs
                 outputs = network(inputs)
@@ -96,21 +145,22 @@ def trainNN():
                 # Set total and correct
                 _, predicted = torch.max(outputs.data, 1)
                 total += targets.size(0)
-                correct += (predicted == targets).sum().item()
-
+                for target, predict in zip(targets, predicted):
+                    match (target, predict):
+                        case (0, 1):
+                            confMatrix["FP"][fold] += 1
+                        case (1, 0):
+                            confMatrix["FN"][fold] += 1
+                        case (0, 0):
+                            confMatrix["TN"][fold] += 1
+                        case (1, 1):
+                            confMatrix["TP"][fold] += 1
             # Print accuracy
-            print('Accuracy for fold %d: %d %%' % (fold, 100.0 * correct / total))
+            print('Accuracy for fold %d: %d %%' % (fold, 100.0 * (confMatrix["TP"][fold] + confMatrix["TN"][fold]) / total))
             print('--------------------------------')
-            results[fold] = 100.0 * (correct / total)
 
-        # Print fold results
-    print(f'K-FOLD CROSS VALIDATION RESULTS FOR {folds} FOLDS')
-    print('--------------------------------')
-    sum = 0.
-    for key, value in results.items():
-        print(f'Fold {key}: {value} %')
-        sum += value
-    print(f'Average: {sum / len(results.items())} %')
+    # Print confusion matrix
+    print("Accuracy")
 
 
 if __name__ == '__main__':
