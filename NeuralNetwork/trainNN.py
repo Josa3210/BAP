@@ -16,7 +16,7 @@ from footstepDataset.FootstepDataset import FootstepDataset
 def trainNN():
     # Parameters
     folds = 5
-    epochs = 3
+    epochs = 5
     lr = 1e-4
     lossFunction = nn.CrossEntropyLoss()
 
@@ -24,15 +24,12 @@ def trainNN():
     dataset = MNISTDataset(mnistTrainSet)
 
     kFold = KFold(n_splits=folds, shuffle=True)
-    confMatrix = {"TP": [0] * folds, "FP": [0] * folds, "FN": [0] * folds, "TN": [0] * folds}
+    results = dict()
 
     for fold, (train_ids, test_ids) in enumerate(kFold.split(dataset)):
         # Print
         print(f'\nFOLD {fold}')
-        print('--------------------------------')
-
-        print(f"Train ids: {train_ids}")
-        print(f"Test ids: {test_ids}")
+        print('=' * 30)
 
         # Sample elements randomly from a given list of ids, no replacement.
         trainSubSampler = SubsetRandomSampler(train_ids)
@@ -46,8 +43,6 @@ def trainNN():
             dataset,
             batch_size=64, sampler=testSubSampler)
 
-        print('--------------------------------\n')
-
         # Get the network
         network: nn.Module = MnistNN()
         optimizer: torch.optim.Optimizer = torch.optim.Adam(network.parameters(), lr=lr)
@@ -56,7 +51,8 @@ def trainNN():
         for epoch in range(epochs):
 
             # Print epoch
-            print(f'Starting epoch {epoch + 1}')
+            print(f'\nStarting epoch {epoch + 1}')
+            print("-" * 30)
 
             # Set current loss value
             currentLoss = 0.
@@ -85,11 +81,11 @@ def trainNN():
                 currentLoss += loss.item()
 
                 if i % 500 == 0:
-                    print(f"{i} batches of the {len(trainloader)} processed")
+                    print(f"{i:4d} / {len(trainloader)} batches processed")
         # Evaluation for this fold
+        print('-' * 30)
         correct, total = 0, 0
         with torch.no_grad():
-
             # Iterate over the test data and generate predictions
             for i, batch in enumerate(testloader):
                 # Get inputs
@@ -101,22 +97,23 @@ def trainNN():
                 # Set total and correct
                 _, predicted = torch.max(outputs.data, 1)
                 total += targets.size(0)
-                for target, predict in zip(targets, predicted):
-                    match (target, predict):
-                        case (0, 1):
-                            confMatrix["FP"][fold] += 1
-                        case (1, 0):
-                            confMatrix["FN"][fold] += 1
-                        case (0, 0):
-                            confMatrix["TN"][fold] += 1
-                        case (1, 1):
-                            confMatrix["TP"][fold] += 1
-            # Print accuracy
-            print('Accuracy for fold %d: %d %%' % (fold, 100.0 * (confMatrix["TP"][fold] + confMatrix["TN"][fold]) / total))
-            print('--------------------------------')
+                correct += (predicted == targets).sum().item()
 
-    # Print confusion matrix
-    print("Accuracy")
+                # Print accuracy
+            print('Accuracy for fold %d: %d %%' % (fold, 100.0 * correct / total))
+            print('-' * 30)
+            results[fold] = (100.0 * (correct / total))
+
+        # Print fold results
+    print(f'\nK-FOLD CROSS VALIDATION RESULTS FOR {folds} FOLDS')
+    print('=' * 30)
+    sum = 0.
+    for key, value in results.items():
+        print(f'Fold {key}: {value:.2f} %')
+        sum += value
+    print('=' * 30)
+    print(f'Average: {sum / len(results.items()):.2f} %')
+    print('=' * 30)
 
 
 if __name__ == '__main__':
