@@ -60,12 +60,9 @@ def trainNN():
     lossFunction = nn.CrossEntropyLoss()
 
     # Get dataset
-    # currentPath = r"D:\_Opslag\GitKraken\BAP"
-    # path = currentPath + r"\data"
-    # dataset = FootstepDataset(path, "Ann")
-
-    mnistTrainSet = datasets.MNIST(root='./MNISTdata', train=True, download=True, transform=None)
-    dataset = CustomMNISTDataset(mnistTrainSet)
+    currentPath = r"D:\_Opslag\GitKraken\BAP"
+    path = currentPath + r"\data"
+    dataset = FootstepDataset(path, "Ann")
 
     kFold = KFold(n_splits=folds, shuffle=True)
     confMatrix = {"TP": [0] * folds, "FP": [0] * folds, "FN": [0] * folds, "TN": [0] * folds}
@@ -93,7 +90,7 @@ def trainNN():
         print('--------------------------------\n')
 
         # Get the network
-        network: nn.Module = MnistNN()
+        network: nn.Module = None
         optimizer: torch.optim.Optimizer = torch.optim.Adam(network.parameters(), lr=lr)
 
         # Start training epochs
