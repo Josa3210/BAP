@@ -5,7 +5,7 @@ import torch
 import torchvision.datasets
 from sklearn.model_selection import KFold
 from torch import nn
-from torch.utils.data import SubsetRandomSampler, ConcatDataset
+from torch.utils.data import SubsetRandomSampler, ConcatDataset, DataLoader
 from torchvision import datasets
 from torchvision.transforms import transforms
 
@@ -19,6 +19,8 @@ def trainNN():
     epochs = 5
     lr = 1e-4
     lossFunction = nn.CrossEntropyLoss()
+
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     mnistTrainSet = datasets.MNIST(root='./MNISTdata', train=True, download=True, transform=None)
     dataset = MNISTDataset(mnistTrainSet)
@@ -36,15 +38,16 @@ def trainNN():
         testSubSampler = SubsetRandomSampler(test_ids)
 
         # Define data loaders for training and testing data in this fold
-        trainloader = torch.utils.data.DataLoader(
+        trainLoader = DataLoader(
             dataset,
             batch_size=64, sampler=trainSubSampler)
-        testloader = torch.utils.data.DataLoader(
+        testLoader = DataLoader(
             dataset,
             batch_size=64, sampler=testSubSampler)
 
         # Get the network
         network: nn.Module = MnistNN()
+        network.to(device)
         optimizer: torch.optim.Optimizer = torch.optim.Adam(network.parameters(), lr=lr)
 
         # Start training epochs
@@ -58,9 +61,12 @@ def trainNN():
             currentLoss = 0.
 
             # Iterate over the DataLoader for training data
-            for i, batch in enumerate(trainloader):
+            for i, batch in enumerate(trainLoader):
                 # Get inputs
                 inputs, targets = batch
+
+                inputs = inputs.to(device)
+                targets = targets.to(device)
 
                 # Zero the gradients
                 optimizer.zero_grad()
@@ -81,15 +87,18 @@ def trainNN():
                 currentLoss += loss.item()
 
                 if i % 500 == 0:
-                    print(f"{i:4d} / {len(trainloader)} batches processed")
+                    print(f"{i:4d} / {len(trainLoader)} batches processed")
         # Evaluation for this fold
         print('-' * 30)
         correct, total = 0, 0
         with torch.no_grad():
             # Iterate over the test data and generate predictions
-            for i, batch in enumerate(testloader):
+            for i, batch in enumerate(testLoader):
                 # Get inputs
                 inputs, targets = batch
+
+                inputs = inputs.to(device)
+                targets = targets.to(device)
 
                 # Generate outputs
                 outputs = network(inputs)
@@ -111,7 +120,7 @@ def trainNN():
     for key, value in results.items():
         print(f'Fold {key}: {value:.2f} %')
         sum += value
-    print('=' * 30)
+    print('-' * 30)
     print(f'Average: {sum / len(results.items()):.2f} %')
     print('=' * 30)
 
