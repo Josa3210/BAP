@@ -17,6 +17,7 @@ def trainNN():
     # Parameters
     folds = 5
     epochs = 5
+    batchSize = 32
     lr = 1e-4
     lossFunction = nn.CrossEntropyLoss()
 
@@ -45,10 +46,10 @@ def trainNN():
         # Define data loaders for training and testing data in this fold
         trainLoader = DataLoader(
             dataset,
-            batch_size=64, sampler=trainSubSampler)
+            batch_size=batchSize, sampler=trainSubSampler)
         testLoader = DataLoader(
             dataset,
-            batch_size=64, sampler=testSubSampler)
+            batch_size=batchSize, sampler=testSubSampler)
 
         # Get the network
         network: nn.Module = MnistNN()
@@ -64,7 +65,6 @@ def trainNN():
 
             # Set current loss value
             currentLoss = 0.
-
             # Iterate over the DataLoader for training data
             for i, batch in enumerate(trainLoader):
                 # Get inputs
@@ -91,8 +91,8 @@ def trainNN():
                 # Print statistics
                 currentLoss += loss.item()
 
-                if i % 500 == 0:
-                    print(f"{i:4d} / {len(trainLoader)} batches processed")
+                if i % 500 == 1:
+                    print(f"{i:4d} / {len(trainLoader)} batches: average loss = {currentLoss/i}")
         # Evaluation for this fold
         print('-' * 30)
         correct, total = 0, 0
@@ -113,8 +113,9 @@ def trainNN():
                 total += targets.size(0)
                 correct += (predicted == targets).sum().item()
 
-                # Print accuracy
-            print('Accuracy for fold %d: %d %%' % (fold, 100.0 * correct / total))
+            # Print accuracy
+            acc = 100.0 * (correct / total)
+            print(f'Accuracy for fold {fold:d}: {acc:.2f}%')
             print('-' * 30)
             results[fold] = (100.0 * (correct / total))
 
