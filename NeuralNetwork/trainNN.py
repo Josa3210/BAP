@@ -23,7 +23,12 @@ def trainNN():
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     mnistTrainSet = datasets.MNIST(root='./MNISTdata', train=True, download=True, transform=None)
-    dataset = MNISTDataset(mnistTrainSet)
+    mnistTestSet = datasets.MNIST(root='./MNISTdata', train=False, download=True, transform=None)
+
+    trainDataset = MNISTDataset(mnistTrainSet)
+    testDataset = MNISTDataset(mnistTestSet)
+
+    dataset = ConcatDataset([trainDataset, testDataset])
 
     kFold = KFold(n_splits=folds, shuffle=True)
     results = dict()
