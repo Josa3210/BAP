@@ -5,29 +5,34 @@ import torch
 import torchvision.datasets
 from sklearn.model_selection import KFold
 from torch import nn
-from torch.utils.data import SubsetRandomSampler, ConcatDataset
+from torch.utils.data import SubsetRandomSampler, ConcatDataset, DataLoader
 from torchvision import datasets
 from torchvision.transforms import transforms
 
+from NeuralNetwork.MNIST_NN import MNISTDataset, MnistNN
 from footstepDataset.FootstepDataset import FootstepDataset
 
 
 def trainNN():
     # Parameters
     folds = 5
-    epochs = 3
+    epochs = 5
+    batchSize = 32
     lr = 1e-4
     lossFunction = nn.CrossEntropyLoss()
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    # Get dataset
-    currentPath = r"D:\_Opslag\GitKraken\BAP"
-    path = currentPath + r"\data"
-    dataset = FootstepDataset(path, "Ann")
+    mnistTrainSet = datasets.MNIST(root='./MNISTdata', train=True, download=True, transform=None)
+    mnistTestSet = datasets.MNIST(root='./MNISTdata', train=False, download=True, transform=None)
+
+    trainDataset = MNISTDataset(mnistTrainSet)
+    testDataset = MNISTDataset(mnistTestSet)
+
+    dataset = ConcatDataset([trainDataset, testDataset])
 
     kFold = KFold(n_splits=folds, shuffle=True)
-    confMatrix = {"Accuracy": [], "ClassError": [], "Recall": [], "Precision": []}
+    results = dict()
 
     for fold, (train_ids, test_ids) in enumerate(kFold.split(dataset)):
         # Print
@@ -39,15 +44,15 @@ def trainNN():
         testSubSampler = SubsetRandomSampler(test_ids)
 
         # Define data loaders for training and testing data in this fold
-        trainLoader = torch.utils.data.DataLoader(
+        trainLoader = DataLoader(
             dataset,
-            batch_size=64, sampler=trainSubSampler)
-        testLoader = torch.utils.data.DataLoader(
+            batch_size=batchSize, sampler=trainSubSampler)
+        testLoader = DataLoader(
             dataset,
-            batch_size=64, sampler=testSubSampler)
+            batch_size=batchSize, sampler=testSubSampler)
 
         # Get the network
-        network: nn.Module = None
+        network: nn.Module = MnistNN()
         network.to(device)
         optimizer: torch.optim.Optimizer = torch.optim.Adam(network.parameters(), lr=lr)
 
@@ -60,7 +65,6 @@ def trainNN():
 
             # Set current loss value
             currentLoss = 0.
-
             # Iterate over the DataLoader for training data
             for i, batch in enumerate(trainLoader):
                 # Get inputs
@@ -88,10 +92,11 @@ def trainNN():
                 # Print statistics
                 currentLoss += loss.item()
 
-                if i % 500 == 0:
-                    print(f"{i:4d} / {len(trainLoader)} batches processed")
-
+                if i % 500 == 1:
+                    print(f"{i:4d} / {len(trainLoader)} batches: average loss = {currentLoss/i}")
         # Evaluation for this fold
+        print('-' * 30)
+        correct, total = 0, 0
         with torch.no_grad():
             entries = 0
             TP = 0
