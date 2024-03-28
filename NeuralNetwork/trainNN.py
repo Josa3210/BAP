@@ -12,52 +12,14 @@ from torchvision.transforms import transforms
 from footstepDataset.FootstepDataset import FootstepDataset
 
 
-class MnistNN(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.ConvLayers = nn.Sequential(
-            nn.Conv2d(in_channels=1, out_channels=5, kernel_size=3),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=5, out_channels=10, kernel_size=3),
-            nn.ReLU()
-        )
-
-        self.LinLayers = nn.Sequential(
-            nn.Linear(10 * 24 * 24, 265),
-            nn.ReLU(),
-            nn.Linear(265, 10),
-            nn.Softmax(dim=1)
-        )
-
-    def forward(self, x: torch.Tensor):
-        # print(x.size())
-        x = self.ConvLayers.forward(x)
-        # print(x.size())
-        x = torch.flatten(x, 1)
-        # print(x.size())
-        x = self.LinLayers(x)
-        return x
-
-
-class CustomMNISTDataset(torch.utils.data.Dataset):
-    def __init__(self, data: torchvision.datasets.MNIST):
-        self.data = data.data
-        self.labels = data.targets
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, index):
-        img, label = self.data[index].to(torch.float).unsqueeze(0), self.labels[index]
-        return img, label
-
-
 def trainNN():
     # Parameters
     folds = 5
     epochs = 3
     lr = 1e-4
     lossFunction = nn.CrossEntropyLoss()
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     # Get dataset
     currentPath = r"D:\_Opslag\GitKraken\BAP"
@@ -77,15 +39,16 @@ def trainNN():
         testSubSampler = SubsetRandomSampler(test_ids)
 
         # Define data loaders for training and testing data in this fold
-        trainloader = torch.utils.data.DataLoader(
+        trainLoader = torch.utils.data.DataLoader(
             dataset,
             batch_size=64, sampler=trainSubSampler)
-        testloader = torch.utils.data.DataLoader(
+        testLoader = torch.utils.data.DataLoader(
             dataset,
             batch_size=64, sampler=testSubSampler)
 
         # Get the network
         network: nn.Module = None
+        network.to(device)
         optimizer: torch.optim.Optimizer = torch.optim.Adam(network.parameters(), lr=lr)
 
         # Start training epochs
@@ -99,9 +62,13 @@ def trainNN():
             currentLoss = 0.
 
             # Iterate over the DataLoader for training data
-            for i, batch in enumerate(trainloader):
+            for i, batch in enumerate(trainLoader):
                 # Get inputs
                 inputs, targets = batch
+
+                # Pass data to GPU (if possible)
+                inputs = inputs.to(device)
+                targets = targets.to(device)
 
                 # Zero the gradients
                 optimizer.zero_grad()
@@ -122,7 +89,7 @@ def trainNN():
                 currentLoss += loss.item()
 
                 if i % 500 == 0:
-                    print(f"{i:4d} / {len(trainloader)} batches processed")
+                    print(f"{i:4d} / {len(trainLoader)} batches processed")
 
         # Evaluation for this fold
         with torch.no_grad():
@@ -132,9 +99,13 @@ def trainNN():
             FP = 0
             FN = 0
             # Iterate over the test data and generate predictions
-            for i, batch in enumerate(testloader):
+            for i, batch in enumerate(testLoader):
                 # Get inputs
                 inputs, targets = batch
+
+                # Pass data to GPU (if possible)
+                inputs = inputs.to(device)
+                targets = targets.to(device)
 
                 # Generate outputs
                 outputs = network(inputs)
