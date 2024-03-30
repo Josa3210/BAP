@@ -3,19 +3,20 @@ import os
 import PIL.Image
 import torch
 import torchvision.datasets
+from matplotlib import pyplot as plt
 from sklearn.model_selection import KFold
 from torch import nn
 from torch.utils.data import SubsetRandomSampler, ConcatDataset, DataLoader
 from torchvision import datasets
 from torchvision.transforms import transforms
-
+from sklearn import metrics
 from NeuralNetwork.MNIST_NN import MNISTDataset, MnistNN
 from footstepDataset.FootstepDataset import FootstepDataset
 
 
 def trainNN():
     # Parameters
-    folds = 5
+    folds = 3
     epochs = 5
     batchSize = 32
     lr = 1e-4
@@ -32,7 +33,7 @@ def trainNN():
     dataset = ConcatDataset([trainDataset, testDataset])
 
     kFold = KFold(n_splits=folds, shuffle=True)
-    results = dict()
+    results = {"ConfMat": [], "Accuracy": [], "Precision": [], "Recall": []}
 
     for fold, (train_ids, test_ids) in enumerate(kFold.split(dataset)):
         # Print
@@ -92,11 +93,16 @@ def trainNN():
                 currentLoss += loss.item()
 
                 if i % 500 == 1:
-                    print(f"{i:4d} / {len(trainLoader)} batches: average loss = {currentLoss/i}")
+                    print(f"{i:4d} / {len(trainLoader)} batches: average loss = {currentLoss / i}")
+
         # Evaluation for this fold
         print('-' * 30)
-        correct, total = 0, 0
+
+        # Lists for creating confusion matrix
+        confMatPred, confMatTarget = [], []
+
         with torch.no_grad():
+
             # Iterate over the test data and generate predictions
             for i, batch in enumerate(testLoader):
                 # Get inputs
@@ -110,26 +116,47 @@ def trainNN():
 
                 # Set total and correct
                 _, predicted = torch.max(outputs.data, 1)
-                total += targets.size(0)
-                correct += (predicted == targets).sum().item()
 
-            # Print accuracy
-            acc = 100.0 * (correct / total)
-            print(f'Accuracy for fold {fold:d}: {acc:.2f}%')
-            print('-' * 30)
-            results[fold] = (100.0 * (correct / total))
+                # Save data in list
+                confMatPred.extend(predicted.data.cpu().numpy())
+                confMatTarget.extend(targets.data.cpu().numpy())
 
-        # Print fold results
-    print(f'\nK-FOLD CROSS VALIDATION RESULTS FOR {folds} FOLDS')
-    print('=' * 30)
-    sum = 0.
-    for key, value in results.items():
-        print(f'Fold {key}: {value:.2f} %')
-        sum += value
-    print('-' * 30)
-    print(f'Average: {sum / len(results.items()):.2f} %')
-    print('=' * 30)
+            # Calculate confusion matrix and metrics
+            results["ConfMat"].append(metrics.confusion_matrix(confMatTarget, confMatPred))
+            results["Accuracy"].append(metrics.accuracy_score(confMatTarget, confMatPred))
+            results["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro"))
+            results["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro"))
+
+    return results
+
+
+def printResults(results: dict[str, list[float]]):
+    print("Results of training:")
+    print("=" * 30)
+
+    keys: list[str] = list(results.keys())
+    folds = len(results[keys[0]])
+    for i in range(folds):
+        print(f"For fold {i:d}:")
+        print("-" * 30)
+        print(f"Accuracy: {results[keys[1]][i]:.2f}%")
+        print(f"Precision: {results[keys[2]][i]:.2f}%")
+        print(f"Recall: {results[keys[3]][i]:.2f}%")
+        print("-" * 30)
+    print("\nAverages:")
+    print("-" * 30)
+
+    avgAccuracy = sum(results[keys[1]]) / folds
+    avgPrecision = sum(results[keys[2]]) / folds
+    avgRecall = sum(results[keys[3]]) / folds
+
+    print(f"Accuracy: {avgAccuracy:.2f}%")
+    print(f"Precision: {avgPrecision:.2f}%")
+    print(f"Recall: {avgRecall}%")
+    print("=" * 30)
+    return avgAccuracy, avgPrecision, avgRecall
 
 
 if __name__ == '__main__':
-    trainNN()
+    results: dict = trainNN()
+    avgAccuracy, avgPrecision, avgRecall = printResults(results)
