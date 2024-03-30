@@ -6,8 +6,6 @@ from torch.utils.data import ConcatDataset, SubsetRandomSampler, DataLoader
 from torchvision import datasets
 
 from NeuralNetwork.MNIST_NN import MNISTDataset, MnistNN
-from NeuralNetwork.trainNN import trainNN
-
 
 def simpleTrain(lr: float = 1e-4):
     # Parameters
