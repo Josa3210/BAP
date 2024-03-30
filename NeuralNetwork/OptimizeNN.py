@@ -9,7 +9,7 @@ from NeuralNetwork.MNIST_NN import MNISTDataset, MnistNN
 from NeuralNetwork.trainNN import trainNN
 
 
-def simpleTrain(lr: float = 1e-4, verbose: bool = False):
+def simpleTrain(lr: float = 1e-4):
     # Parameters
     folds = 3
     epochs = 5
@@ -28,14 +28,8 @@ def simpleTrain(lr: float = 1e-4, verbose: bool = False):
     dataset = ConcatDataset([trainDataset, testDataset])
 
     kFold = KFold(n_splits=folds, shuffle=True)
-    results = {"ConfMat": [], "Accuracy": [], "Precision": [], "Recall": []}
 
     for fold, (train_ids, test_ids) in enumerate(kFold.split(dataset)):
-        # Print
-        if verbose:
-            print(f'\nFOLD {fold}')
-            print('=' * 30)
-
         # Sample elements randomly from a given list of ids, no replacement.
         trainSubSampler = SubsetRandomSampler(train_ids)
         testSubSampler = SubsetRandomSampler(test_ids)
@@ -55,11 +49,6 @@ def simpleTrain(lr: float = 1e-4, verbose: bool = False):
 
         # Start training epochs
         for epoch in range(epochs):
-            if verbose:
-                # Print epoch
-                print(f'\nStarting epoch {epoch + 1}')
-                print("-" * 30)
-
             # Set current loss value
             currentLoss = 0.
             # Iterate over the DataLoader for training data
@@ -87,14 +76,6 @@ def simpleTrain(lr: float = 1e-4, verbose: bool = False):
 
                 # Print statistics
                 currentLoss += loss.item()
-
-                if verbose:
-                    if i % 500 == 1:
-                        print(f"{i:4d} / {len(trainLoader)} batches: average loss = {currentLoss / i}")
-
-        if verbose:
-            # Evaluation for this fold
-            print('-' * 30)
 
         currentLoss = 0.
         with torch.no_grad():
