@@ -152,7 +152,7 @@ def printResults(results: dict[str, list[float]]):
 
     print(f"Accuracy: {avgAccuracy:.2f}%")
     print(f"Precision: {avgPrecision:.2f}%")
-    print(f"Recall: {avgRecall}%")
+    print(f"Recall: {avgRecall:.2f}%")
     print("=" * 30)
     return avgAccuracy, avgPrecision, avgRecall
 
