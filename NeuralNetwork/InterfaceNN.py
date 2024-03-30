@@ -141,20 +141,23 @@ class InterfaceNN(nn.Module):
 
         return sum(self.results["Loss"]) / len(self.results["Loss"])
 
-    def printResults(self):
+    def printResults(self, fullReport: bool = False):
         print("Results of training:")
         print("=" * 30)
 
         keys: list[str] = list(self.results.keys())
         folds = len(self.results[keys[0]])
-        for i in range(folds):
-            print(f"For fold {i:d}:")
-            print("-" * 30)
-            print(f"Accuracy: {self.results[keys[1]][i]:.2f}%")
-            print(f"Precision: {self.results[keys[2]][i]:.2f}%")
-            print(f"Recall: {self.results[keys[3]][i]:.2f}%")
-            print("-" * 30)
-        print("\nAverages:")
+        if fullReport:
+
+            for i in range(folds):
+                print(f"For fold {i:d}:")
+                print("-" * 30)
+                print(f"Accuracy: {self.results[keys[1]][i]:.2f}%")
+                print(f"Precision: {self.results[keys[2]][i]:.2f}%")
+                print(f"Recall: {self.results[keys[3]][i]:.2f}%")
+                print("-" * 30)
+
+        print("Average:")
         print("-" * 30)
 
         avgAccuracy = sum(self.results[keys[1]]) / folds

@@ -25,11 +25,8 @@ class MnistNN(InterfaceNN):
         )
 
     def forward(self, x: torch.Tensor):
-        # print(x.size())
         x = self.ConvLayers.forward(x)
-        # print(x.size())
         x = torch.flatten(x, 1)
-        # print(x.size())
         x = self.LinLayers(x)
         return x
 
