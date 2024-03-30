@@ -1,13 +1,15 @@
 import torch
+from bayes_opt import BayesianOptimization, JSONLogger, Events
 from sklearn.model_selection import KFold
 from torch import nn
-from torch.utils.data import SubsetRandomSampler, ConcatDataset, DataLoader
+from torch.utils.data import ConcatDataset, SubsetRandomSampler, DataLoader
 from torchvision import datasets
-from sklearn import metrics
+
 from NeuralNetwork.MNIST_NN import MNISTDataset, MnistNN
+from NeuralNetwork.trainNN import trainNN
 
 
-def trainNN(lr: float = 1e-4, verbose: bool = False):
+def simpleTrain(lr: float = 1e-4, verbose: bool = False):
     # Parameters
     folds = 3
     epochs = 5
@@ -94,9 +96,7 @@ def trainNN(lr: float = 1e-4, verbose: bool = False):
             # Evaluation for this fold
             print('-' * 30)
 
-        # Lists for creating confusion matrix
-        confMatPred, confMatTarget = [], []
-
+        currentLoss = 0.
         with torch.no_grad():
             # Iterate over the test data and generate predictions
             for i, batch in enumerate(testLoader):
@@ -112,46 +112,26 @@ def trainNN(lr: float = 1e-4, verbose: bool = False):
                 # Set total and correct
                 _, predicted = torch.max(outputs.data, 1)
 
-                # Save data in list
-                confMatPred.extend(predicted.data.cpu().numpy())
-                confMatTarget.extend(targets.data.cpu().numpy())
-
-            # Calculate confusion matrix and metrics
-            results["ConfMat"].append(metrics.confusion_matrix(confMatTarget, confMatPred))
-            results["Accuracy"].append(metrics.accuracy_score(confMatTarget, confMatPred))
-            results["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro"))
-            results["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro"))
-
-    return results
-
-
-def printResults(results: dict[str, list[float]]):
-    print("Results of training:")
-    print("=" * 30)
-
-    keys: list[str] = list(results.keys())
-    folds = len(results[keys[0]])
-    for i in range(folds):
-        print(f"For fold {i:d}:")
-        print("-" * 30)
-        print(f"Accuracy: {results[keys[1]][i]:.2f}%")
-        print(f"Precision: {results[keys[2]][i]:.2f}%")
-        print(f"Recall: {results[keys[3]][i]:.2f}%")
-        print("-" * 30)
-    print("\nAverages:")
-    print("-" * 30)
-
-    avgAccuracy = sum(results[keys[1]]) / folds
-    avgPrecision = sum(results[keys[2]]) / folds
-    avgRecall = sum(results[keys[3]]) / folds
-
-    print(f"Accuracy: {avgAccuracy:.2f}%")
-    print(f"Precision: {avgPrecision:.2f}%")
-    print(f"Recall: {avgRecall:.2f}%")
-    print("=" * 30)
-    return avgAccuracy, avgPrecision, avgRecall
+                loss = lossFunction(outputs, targets)
+                currentLoss += loss.item()
+    return -currentLoss
 
 
 if __name__ == '__main__':
-    results: dict = trainNN()
-    avgAccuracy, avgPrecision, avgRecall = printResults(results)
+
+    # Give the parameter space from which the optimizer can choose
+    parameterBounds = {"lr": (1e-6, 1e-3)}
+
+    # Create the optimizer object
+    optimizer = BayesianOptimization(
+        f=simpleTrain,
+        pbounds=parameterBounds
+    )
+
+    print("Start optimization")
+    optimizer.maximize(
+        init_points=3,
+        n_iter=5
+    )
+
+    print(f"Best params are: {optimizer.max}")
