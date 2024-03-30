@@ -1,17 +1,10 @@
-import os
-
-import PIL.Image
 import torch
-import torchvision.datasets
-from matplotlib import pyplot as plt
 from sklearn.model_selection import KFold
 from torch import nn
 from torch.utils.data import SubsetRandomSampler, ConcatDataset, DataLoader
 from torchvision import datasets
-from torchvision.transforms import transforms
 from sklearn import metrics
 from NeuralNetwork.MNIST_NN import MNISTDataset, MnistNN
-from footstepDataset.FootstepDataset import FootstepDataset
 
 
 def trainNN():
@@ -102,11 +95,6 @@ def trainNN():
         confMatPred, confMatTarget = [], []
 
         with torch.no_grad():
-            entries = 0
-            TP = 0
-            TN = 0
-            FP = 0
-            FN = 0
             # Iterate over the test data and generate predictions
             for i, batch in enumerate(testLoader):
                 # Get inputs
