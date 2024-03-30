@@ -3,31 +3,37 @@ import os
 import PIL.Image
 import torch
 import torchvision.datasets
+from matplotlib import pyplot as plt
 from sklearn.model_selection import KFold
 from torch import nn
-from torch.utils.data import SubsetRandomSampler, ConcatDataset
+from torch.utils.data import SubsetRandomSampler, ConcatDataset, DataLoader
 from torchvision import datasets
 from torchvision.transforms import transforms
-
+from sklearn import metrics
+from NeuralNetwork.MNIST_NN import MNISTDataset, MnistNN
 from footstepDataset.FootstepDataset import FootstepDataset
 
 
 def trainNN():
     # Parameters
-    folds = 5
-    epochs = 3
+    folds = 3
+    epochs = 5
+    batchSize = 32
     lr = 1e-4
     lossFunction = nn.CrossEntropyLoss()
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    # Get dataset
-    currentPath = r"D:\_Opslag\GitKraken\BAP"
-    path = currentPath + r"\data"
-    dataset = FootstepDataset(path, "Ann")
+    mnistTrainSet = datasets.MNIST(root='./MNISTdata', train=True, download=True, transform=None)
+    mnistTestSet = datasets.MNIST(root='./MNISTdata', train=False, download=True, transform=None)
+
+    trainDataset = MNISTDataset(mnistTrainSet)
+    testDataset = MNISTDataset(mnistTestSet)
+
+    dataset = ConcatDataset([trainDataset, testDataset])
 
     kFold = KFold(n_splits=folds, shuffle=True)
-    confMatrix = {"Accuracy": [], "ClassError": [], "Recall": [], "Precision": []}
+    results = {"ConfMat": [], "Accuracy": [], "Precision": [], "Recall": []}
 
     for fold, (train_ids, test_ids) in enumerate(kFold.split(dataset)):
         # Print
@@ -39,15 +45,15 @@ def trainNN():
         testSubSampler = SubsetRandomSampler(test_ids)
 
         # Define data loaders for training and testing data in this fold
-        trainLoader = torch.utils.data.DataLoader(
+        trainLoader = DataLoader(
             dataset,
-            batch_size=64, sampler=trainSubSampler)
-        testLoader = torch.utils.data.DataLoader(
+            batch_size=batchSize, sampler=trainSubSampler)
+        testLoader = DataLoader(
             dataset,
-            batch_size=64, sampler=testSubSampler)
+            batch_size=batchSize, sampler=testSubSampler)
 
         # Get the network
-        network: nn.Module = None
+        network: nn.Module = MnistNN()
         network.to(device)
         optimizer: torch.optim.Optimizer = torch.optim.Adam(network.parameters(), lr=lr)
 
@@ -60,13 +66,11 @@ def trainNN():
 
             # Set current loss value
             currentLoss = 0.
-
             # Iterate over the DataLoader for training data
             for i, batch in enumerate(trainLoader):
                 # Get inputs
                 inputs, targets = batch
 
-                # Pass data to GPU (if possible)
                 inputs = inputs.to(device)
                 targets = targets.to(device)
 
@@ -88,10 +92,15 @@ def trainNN():
                 # Print statistics
                 currentLoss += loss.item()
 
-                if i % 500 == 0:
-                    print(f"{i:4d} / {len(trainLoader)} batches processed")
+                if i % 500 == 1:
+                    print(f"{i:4d} / {len(trainLoader)} batches: average loss = {currentLoss / i}")
 
         # Evaluation for this fold
+        print('-' * 30)
+
+        # Lists for creating confusion matrix
+        confMatPred, confMatTarget = [], []
+
         with torch.no_grad():
             entries = 0
             TP = 0
@@ -103,7 +112,6 @@ def trainNN():
                 # Get inputs
                 inputs, targets = batch
 
-                # Pass data to GPU (if possible)
                 inputs = inputs.to(device)
                 targets = targets.to(device)
 
@@ -112,48 +120,47 @@ def trainNN():
 
                 # Set total and correct
                 _, predicted = torch.max(outputs.data, 1)
-                for target, predict in zip(targets, predicted):
-                    entries += 1
-                    match (target, predict):
-                        case (0, 1):
-                            FP += 1
-                        case (1, 0):
-                            FN += 1
-                        case (0, 0):
-                            TN += 1
-                        case (1, 1):
-                            TP += 1
-            # Print accuracy
-            accuracy = ((TP + TN) / entries) * 100
-            classificationError = ((FP + FN) / entries) * 100
-            recall = (TP / (TP + FN)) * 100
-            precision = (TP / (TP + FP)) * 100
 
-            confMatrix["Accuracy"].append(accuracy)
-            confMatrix["ClassError"].append(classificationError)
-            confMatrix["Recall"].append(recall)
-            confMatrix["Precision"].append(precision)
+                # Save data in list
+                confMatPred.extend(predicted.data.cpu().numpy())
+                confMatTarget.extend(targets.data.cpu().numpy())
 
-            print(f"Accuracy for fold {fold:d}: {accuracy:.2f}%")
-            print('=' * 30)
+            # Calculate confusion matrix and metrics
+            results["ConfMat"].append(metrics.confusion_matrix(confMatTarget, confMatPred))
+            results["Accuracy"].append(metrics.accuracy_score(confMatTarget, confMatPred))
+            results["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro"))
+            results["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro"))
 
-        # Calculate average of confusion matrix
-        avgAccuracy = sum(confMatrix["Accuracy"]) / len(confMatrix["Accuracy"])
-        avgClassErr = sum(confMatrix["ClassError"]) / len(confMatrix["ClassError"])
-        avgRecall = sum(confMatrix["Recall"]) / len(confMatrix["Recall"])
-        avgPrecision = sum(confMatrix["Precision"]) / len(confMatrix["Precision"])
+    return results
 
-        # Print confusion matrix
-        print("\n Average performance statistics")
-        print("=" * 30)
-        print(f"Accuracy: {avgAccuracy:.2f}%")
-        print(f"Classification Error: {avgClassErr:.2f}%")
-        print(f"Recall: {avgRecall:.2f}%")
-        print(f"Precision: {avgPrecision:.2f}%")
-        print("=" * 30)
 
-        print(confMatrix)
+def printResults(results: dict[str, list[float]]):
+    print("Results of training:")
+    print("=" * 30)
+
+    keys: list[str] = list(results.keys())
+    folds = len(results[keys[0]])
+    for i in range(folds):
+        print(f"For fold {i:d}:")
+        print("-" * 30)
+        print(f"Accuracy: {results[keys[1]][i]:.2f}%")
+        print(f"Precision: {results[keys[2]][i]:.2f}%")
+        print(f"Recall: {results[keys[3]][i]:.2f}%")
+        print("-" * 30)
+    print("\nAverages:")
+    print("-" * 30)
+
+    avgAccuracy = sum(results[keys[1]]) / folds
+    avgPrecision = sum(results[keys[2]]) / folds
+    avgRecall = sum(results[keys[3]]) / folds
+
+    print(f"Accuracy: {avgAccuracy:.2f}%")
+    print(f"Precision: {avgPrecision:.2f}%")
+    print(f"Recall: {avgRecall:.2f}%")
+    print("=" * 30)
+    return avgAccuracy, avgPrecision, avgRecall
 
 
 if __name__ == '__main__':
-    trainNN()
+    results: dict = trainNN()
+    avgAccuracy, avgPrecision, avgRecall = printResults(results)
