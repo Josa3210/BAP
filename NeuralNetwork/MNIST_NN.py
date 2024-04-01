@@ -1,9 +1,13 @@
 import torch
 import torchvision
 from torch import nn
+from torch.utils.data import ConcatDataset
+from torchvision import datasets
+
+from NeuralNetwork.InterfaceNN import InterfaceNN
 
 
-class MnistNN(nn.Module):
+class MnistNN(InterfaceNN):
     def __init__(self):
         super().__init__()
         self.ConvLayers = nn.Sequential(
@@ -21,11 +25,8 @@ class MnistNN(nn.Module):
         )
 
     def forward(self, x: torch.Tensor):
-        # print(x.size())
         x = self.ConvLayers.forward(x)
-        # print(x.size())
         x = torch.flatten(x, 1)
-        # print(x.size())
         x = self.LinLayers(x)
         return x
 
@@ -41,3 +42,28 @@ class MNISTDataset(torch.utils.data.Dataset):
     def __getitem__(self, index):
         img, label = self.data[index].to(torch.float).unsqueeze(0), self.labels[index]
         return img, label
+
+
+if __name__ == '__main__':
+    network: MnistNN = MnistNN()
+
+    mnistTrainSet = datasets.MNIST(root='./MNISTdata', train=True, download=True, transform=None)
+    mnistTestSet = datasets.MNIST(root='./MNISTdata', train=False, download=True, transform=None)
+
+    trainDataset = MNISTDataset(mnistTrainSet)
+    testDataset = MNISTDataset(mnistTestSet)
+
+    dataset = ConcatDataset([trainDataset, testDataset])
+    network.trainingData = dataset
+
+    network.optimizeLR(
+        bounds=(1e-5, 1e-3),
+        trainingData=trainDataset,
+        n_iter=1,
+        init_points=1)
+
+    network.trainOnData(trainingData=trainDataset,
+                        verbose=True,
+                        lr=network.bestLR)
+
+    network.printResults()
