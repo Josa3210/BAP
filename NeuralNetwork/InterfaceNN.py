@@ -190,9 +190,9 @@ class InterfaceNN(nn.Module):
 
                 # Calculate confusion matrix and metrics
                 self.results["Loss"].append(currentLoss)
-                self.results["Accuracy"].append(metrics.accuracy_score(confMatTarget, confMatPred))
-                self.results["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0))
-                self.results["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0))
+                self.results["Accuracy"].append(metrics.accuracy_score(confMatTarget, confMatPred) * 100)
+                self.results["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
+                self.results["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
 
         return sum(self.results["Loss"]) / len(self.results["Loss"])
 
@@ -215,9 +215,9 @@ class InterfaceNN(nn.Module):
         print("Average:")
         print("-" * 30)
 
-        avgAccuracy = sum(self.results[keys[1]]) / folds
-        avgPrecision = sum(self.results[keys[2]]) / folds
-        avgRecall = sum(self.results[keys[3]]) / folds
+        avgAccuracy = sum(self.results[keys[1]]) / folds * 100
+        avgPrecision = sum(self.results[keys[2]]) / folds * 100
+        avgRecall = sum(self.results[keys[3]]) / folds * 100
 
         print(f"Accuracy: {avgAccuracy:.2f}%")
         print(f"Precision: {avgPrecision:.2f}%")
