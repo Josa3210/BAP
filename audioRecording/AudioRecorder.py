@@ -1,3 +1,6 @@
+import os.path
+from pathlib import Path
+
 import numpy
 import sounddevice as sd
 from scipy.io.wavfile import write
@@ -8,7 +11,7 @@ class Audiorecorder:
         self.inputDevice = sd.default.device[0]
         self.sampleRate = sampleRate  # Sample rate (samples per second)
         self.channels = channels  # Channels
-        self.baseLink = baseLink
+        self.baseLink = Path(baseLink)
 
     @property
     def sampleRate(self):
@@ -30,42 +33,77 @@ class Audiorecorder:
 
     @property
     def baseLink(self):
-        return self._link
+        return self._baseLink
 
     @baseLink.setter
-    def baseLink(self, link: str):
-        self._link = link
+    def baseLink(self, link: Path):
+        if not link.is_dir():
+            os.makedirs(link)
 
-    def record(self, duration: float, fileName: str = None):
+        self._baseLink = link
+
+    def record(self, duration: float, playBack: bool = False):
         # Record audio
         print("Recording started")
         recording = sd.rec(int(duration * self.sampleRate))
         sd.wait()  # Wait until recording is finished
         print("Recording stopped")
 
+        if playBack:
+            print("Playing back...")
+            sd.play(recording)
+            sd.wait()
+
+        return recording
+
+    def save(self, recording, fileName: str = None):
         # Check for filename or ask for one
         if fileName is None:
             fileName = input("Give name to this file:\n")
         fileName += ".wav"
 
         # Save in folder under given filename
-        write(self.baseLink + fileName, self.sampleRate, recording)
-        print(f"Recoding saved under '{self.baseLink + fileName}'")
+        path = self.baseLink.joinpath(Path(fileName))
+        parentPath = path.parent
+        if not parentPath.is_dir():
+            os.makedirs(parentPath)
+
+        write(path, self.sampleRate, recording)
+        print(f"Recording saved under '{path}'")
 
     @staticmethod
     def setInputDevice():
-        # Show possible devices
-        inputDevices = sd.query_devices(kind="input")
-        print(f"Possible input devices:\n{inputDevices}")
-
         # Ask for the input device
         index = input("Choose your device: (Copy the name) \n")
 
         # Set device as default
         sd.default.device[0] = index
 
+    @staticmethod
+    def setOutputDevice():
+        # Ask for the input device
+        index = input("Choose your device: (Copy the name) \n")
+
+        # Set device as default
+        sd.default.device[1] = index
+
+    def continuousRecord(self):
+        duration = float(input("Give duration: "))
+
+        userInput = input("Ready to record? (Y or N): ")
+        while userInput.capitalize() == "Y":
+            recording = self.record(duration=duration, playBack=True)
+            saveInput = input("Save? (Y or N): ")
+            if saveInput.capitalize() == "Y":
+                self.save(recording)
+            userInput = input("Ready to record? (Y or N): ")
+
 
 if __name__ == '__main__':
-    recorder = Audiorecorder("./", 4410, 2)
-    recorder.setInputDevice()
-    recorder.record(5)
+    directory = input("In which directory will you save the files?: ")
+    sampleRate = input("What sampleRate do you use?: ")
+    channels = input("How many channels do you use?: ")
+    recorder = Audiorecorder(directory, int(sampleRate), int(channels))
+
+    print("Start recording...")
+    recorder.continuousRecord()
