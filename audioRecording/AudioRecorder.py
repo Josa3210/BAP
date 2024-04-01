@@ -5,7 +5,7 @@ from scipy.io.wavfile import write
 
 class Audiorecorder:
     def __init__(self, baseLink: str, sampleRate: int, channels: int):
-        self.inputDevice = None
+        self.inputDevice = sd.default.device[0]
         self.sampleRate = sampleRate  # Sample rate (samples per second)
         self.channels = channels  # Channels
         self.baseLink = baseLink
@@ -52,8 +52,20 @@ class Audiorecorder:
         write(self.baseLink + fileName, self.sampleRate, recording)
         print(f"Recoding saved under '{self.baseLink + fileName}'")
 
-    def setInputDevice(self):
-        print(sd.query_devices(kind="input"))
+    @staticmethod
+    def setInputDevice():
+        # Show possible devices
+        inputDevices = sd.query_devices(kind="input")
+        print(f"Possible input devices:\n{inputDevices}")
+
+        # Ask for the input device
         index = input("Choose your device: (Copy the name) \n")
-        self.inputDevice = sd.query_devices(device=index)
+
+        # Set device as default
         sd.default.device[0] = index
+
+
+if __name__ == '__main__':
+    recorder = Audiorecorder("./", 4410, 2)
+    recorder.setInputDevice()
+    recorder.record(5)
