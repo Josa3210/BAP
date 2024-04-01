@@ -8,6 +8,11 @@ from scipy.io.wavfile import write
 
 class Audiorecorder:
     def __init__(self, baseLink: str, sampleRate: int, channels: int):
+        """
+       Initializes the Audiorecorder class. Sets the baseLink (the path where the audio files will be saved),
+       the sample rate (the number of samples per second), and the number of channels.
+       """
+
         self.inputDevice = sd.default.device[0]
         self.sampleRate = sampleRate  # Sample rate (samples per second)
         self.channels = channels  # Channels
@@ -43,6 +48,9 @@ class Audiorecorder:
         self._baseLink = link
 
     def record(self, duration: float, playBack: bool = False):
+        """
+        Records audio for a specified duration. If `playBack` is set to `True`, it plays back the recorded audio after recording.
+        """
         # Record audio
         print("Recording started")
         recording = sd.rec(int(duration * self.sampleRate))
@@ -57,6 +65,9 @@ class Audiorecorder:
         return recording
 
     def save(self, recording, fileName: str = None):
+        """
+        Saves the recorded audio. If no filename is given, it asks the user to enter a filename.
+        """
         # Check for filename or ask for one
         if fileName is None:
             fileName = input("Give name to this file:\n")
@@ -88,6 +99,10 @@ class Audiorecorder:
         sd.default.device[1] = index
 
     def continuousRecord(self):
+        """
+        This method continuously records audio until the user indicates they want to stop.
+        After each recording, it asks the user if the recording should be saved.
+        """
         duration = float(input("Give duration: "))
 
         userInput = input("Ready to record? (Y or N): ")
