@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy
 import sounddevice as sd
+from matplotlib import pyplot as plt
 from scipy.io.wavfile import write
 
 
@@ -87,12 +88,18 @@ class Audiorecorder:
         # Set device as default
         sd.default.device[1] = index
 
-    def continuousRecord(self):
+    def continuousRecord(self, showImages: bool = False):
         duration = float(input("Give duration: "))
 
         userInput = input("Ready to record? (Y or N): ")
         while userInput.capitalize() == "Y":
             recording = self.record(duration=duration, playBack=True)
+            if showImages:
+                plt.plot(recording)
+                plt.title("Recording")
+                plt.xlabel("Sample")
+                plt.ylabel("Amplitude")
+                plt.show()
             saveInput = input("Save? (Y or N): ")
             if saveInput.capitalize() == "Y":
                 self.save(recording)
@@ -106,4 +113,4 @@ if __name__ == '__main__':
     recorder = Audiorecorder(directory, int(sampleRate), int(channels))
 
     print("Start recording...")
-    recorder.continuousRecord()
+    recorder.continuousRecord(showImages=True)
