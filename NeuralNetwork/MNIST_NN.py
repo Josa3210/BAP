@@ -54,8 +54,16 @@ if __name__ == '__main__':
     testDataset = MNISTDataset(mnistTestSet)
 
     dataset = ConcatDataset([trainDataset, testDataset])
+    network.trainingData = dataset
+
+    network.optimizeLR(
+        bounds=(1e-5, 1e-3),
+        trainingData=trainDataset,
+        n_iter=1,
+        init_points=1)
 
     network.trainOnData(trainingData=trainDataset,
-                        verbose=True)
+                        verbose=True,
+                        lr=network.bestLR)
 
     network.printResults()

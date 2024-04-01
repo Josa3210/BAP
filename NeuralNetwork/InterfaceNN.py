@@ -1,4 +1,5 @@
 import torch
+from bayes_opt import BayesianOptimization
 from sklearn import metrics
 from sklearn.model_selection import KFold
 from torch import nn, device, Tensor
@@ -10,9 +11,55 @@ class InterfaceNN(nn.Module):
         super().__init__()
         self.device = self.getDevice()
         self.results = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
+        self.trainingData = None
+        self.batchSize = 64
+        self.learningRate = 1e-5
+        self.bestLR = 1e-5
+        self.folds = 5
+        self.epochs = 5
 
     def forward(self, x: Tensor):
         pass
+
+    @property
+    def trainingData(self):
+        return self._trainingData
+
+    @trainingData.setter
+    def trainingData(self, data):
+        self._trainingData = data
+
+    @property
+    def batchSize(self):
+        return self._batchSize
+
+    @batchSize.setter
+    def batchSize(self, batchSize: int):
+        self._batchSize = batchSize
+
+    @property
+    def learningRate(self):
+        return self._learningRate
+
+    @learningRate.setter
+    def learningRate(self, lr: float):
+        self._learningRate = lr
+
+    @property
+    def epochs(self):
+        return self._epochs
+
+    @epochs.setter
+    def epochs(self, epochs: int):
+        self._epochs = epochs
+
+    @property
+    def folds(self):
+        return self._folds
+
+    @folds.setter
+    def folds(self, folds: int):
+        self._folds = folds
 
     @staticmethod
     def getDevice():
@@ -22,24 +69,36 @@ class InterfaceNN(nn.Module):
         self.results = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
 
     def trainOnData(self,
-                    trainingData: Dataset,
-                    verbose: bool = False,
-                    folds: int = 5,
-                    epochs: int = 5,
-                    batchSize: int = 64,
-                    lr: float = 1e-5,
-                    optimize: bool = False):
+                    trainingData: Dataset = None,
+                    folds: int = None,
+                    epochs: int = None,
+                    batchSize: int = None,
+                    lr: int = None,
+                    verbose: bool = False):
+
+        # Initialize parameters
+        if trainingData is not None:
+            self.trainingData = trainingData
+        if folds is not None:
+            self.folds = folds
+        if epochs is not None:
+            self.epochs = epochs
+        if batchSize is not None:
+            self.batchSize = batchSize
+        if lr is not None:
+            self.learningRate = lr
 
         self.clearResults()
 
-        if optimize:
-            verbose = False
+        if self.trainingData is None:
+            print("Define trainingdata using network.setTrainingData()")
+            return None
 
         lossFunction = nn.CrossEntropyLoss()
 
-        kFold = KFold(n_splits=folds, shuffle=True)
+        kFold = KFold(n_splits=self.folds, shuffle=True)
 
-        for fold, (train_ids, validation_ids) in enumerate(kFold.split(trainingData)):
+        for fold, (train_ids, validation_ids) in enumerate(kFold.split(self.trainingData)):
             # Print
             if verbose:
                 print(f'\nFOLD {fold}')
@@ -51,18 +110,18 @@ class InterfaceNN(nn.Module):
 
             # Define data loaders for training and testing data in this fold
             trainLoader = DataLoader(
-                trainingData,
-                batch_size=batchSize, sampler=trainSubSampler)
+                self.trainingData,
+                batch_size=self.batchSize, sampler=trainSubSampler)
             validationLoader = DataLoader(
-                trainingData,
-                batch_size=batchSize, sampler=validationSubSampler)
+                self.trainingData,
+                batch_size=self.batchSize, sampler=validationSubSampler)
 
             # Get the network to the right device
             self.to(self.device)
-            optimizer: torch.optim.Optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+            optimizer: torch.optim.Optimizer = torch.optim.Adam(self.parameters(), lr=self.learningRate)
 
             # Start training epochs
-            for epoch in range(epochs):
+            for epoch in range(self.epochs):
                 if verbose:
                     # Print epoch
                     print(f'\nStarting epoch {epoch + 1}')
@@ -126,18 +185,14 @@ class InterfaceNN(nn.Module):
                     loss = lossFunction(outputs, targets)
                     currentLoss += loss.item()
 
-                    if not optimize:
-                        # Save data in list
-                        confMatPred.extend(predicted.data.cpu().numpy())
-                        confMatTarget.extend(targets.data.cpu().numpy())
+                    confMatPred.extend(predicted.data.cpu().numpy())
+                    confMatTarget.extend(targets.data.cpu().numpy())
 
+                # Calculate confusion matrix and metrics
                 self.results["Loss"].append(currentLoss)
-
-                if not optimize:
-                    # Calculate confusion matrix and metrics
-                    self.results["Accuracy"].append(metrics.accuracy_score(confMatTarget, confMatPred))
-                    self.results["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro"))
-                    self.results["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro"))
+                self.results["Accuracy"].append(metrics.accuracy_score(confMatTarget, confMatPred))
+                self.results["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0))
+                self.results["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0))
 
         return sum(self.results["Loss"]) / len(self.results["Loss"])
 
@@ -168,3 +223,40 @@ class InterfaceNN(nn.Module):
         print(f"Precision: {avgPrecision:.2f}%")
         print(f"Recall: {avgRecall:.2f}%")
         print("=" * 30)
+
+    def optimizeLR(self,
+                   bounds: tuple[float, float],
+                   trainingData: Dataset = None,
+                   init_points: int = 5,
+                   n_iter: int = 10,
+                   folds: int = None,
+                   epochs: int = None,
+                   batchSize: int = None):
+
+        # Initialize parameters
+        if trainingData is not None:
+            self.trainingData = trainingData
+        if folds is not None:
+            self.folds = folds
+        if epochs is not None:
+            self.epochs = epochs
+        if batchSize is not None:
+            self.batchSize = batchSize
+
+        print("Start optimization")
+        # Give the parameter space from which the optimizer can choose
+        parameterBounds = {"lr": (bounds[0], bounds[1])}
+
+        # Create the optimizer object
+        optimizer = BayesianOptimization(
+            f=self.trainOnData,
+            pbounds=parameterBounds
+        )
+
+        optimizer.maximize(
+            init_points=init_points,
+            n_iter=n_iter
+        )
+
+        self.bestLR = optimizer.max["params"]["lr"]
+        print(f"Best learning rate is: {self.bestLR:.8f}")
