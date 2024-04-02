@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy
 import sounddevice as sd
 from matplotlib import pyplot as plt
+from numpy import linspace
 from scipy.io.wavfile import write
 
 
@@ -89,15 +90,16 @@ class Audiorecorder:
         sd.default.device[1] = index
 
     def continuousRecord(self, showImages: bool = False):
-        duration = float(input("Give duration: "))
+        duration = int(input("Give duration: "))
+        time = linspace(0, duration, self.sampleRate * duration)
 
         userInput = input("Ready to record? (Y or N): ")
         while userInput.capitalize() == "Y":
             recording = self.record(duration=duration, playBack=True)
             if showImages:
-                plt.plot(recording)
+                plt.plot(time, recording)
                 plt.title("Recording")
-                plt.xlabel("Sample")
+                plt.xlabel("Time")
                 plt.ylabel("Amplitude")
                 plt.show()
             saveInput = input("Save? (Y or N): ")
