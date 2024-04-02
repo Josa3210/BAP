@@ -3,6 +3,8 @@ from pathlib import Path
 
 import numpy
 import sounddevice as sd
+from matplotlib import pyplot as plt
+from numpy import linspace
 from scipy.io.wavfile import write
 
 
@@ -103,11 +105,18 @@ class Audiorecorder:
         This method continuously records audio until the user indicates they want to stop.
         After each recording, it asks the user if the recording should be saved.
         """
-        duration = float(input("Give duration: "))
+        duration = int(input("Give duration: "))
+        time = linspace(0, duration, self.sampleRate * duration)
 
         userInput = input("Ready to record? (Y or N): ")
         while userInput.capitalize() == "Y":
             recording = self.record(duration=duration, playBack=True)
+            if showImages:
+                plt.plot(time, recording)
+                plt.title("Recording")
+                plt.xlabel("Time")
+                plt.ylabel("Amplitude")
+                plt.show()
             saveInput = input("Save? (Y or N): ")
             if saveInput.capitalize() == "Y":
                 self.save(recording)
@@ -121,4 +130,4 @@ if __name__ == '__main__':
     recorder = Audiorecorder(directory, int(sampleRate), int(channels))
 
     print("Start recording...")
-    recorder.continuousRecord()
+    recorder.continuousRecord(showImages=True)
