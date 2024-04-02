@@ -14,7 +14,6 @@ class InterfaceNN(nn.Module):
         self.trainingData = None
         self.batchSize = 64
         self.learningRate = 1e-5
-        self.bestLR = 1e-5
         self.folds = 5
         self.epochs = 5
 
@@ -73,7 +72,7 @@ class InterfaceNN(nn.Module):
                     folds: int = None,
                     epochs: int = None,
                     batchSize: int = None,
-                    lr: int = None,
+                    lr: float = None,
                     verbose: bool = False):
 
         # Initialize parameters
@@ -156,8 +155,8 @@ class InterfaceNN(nn.Module):
                     currentLoss += loss.item()
 
                     if verbose:
-                        if i % 500 == 1:
-                            print(f"{i:4d} / {len(trainLoader)} batches: average loss = {currentLoss / i}")
+                        if i % 500 == 0:
+                            print(f"{i:4d} / {len(trainLoader)} batches: average loss = {currentLoss / (i + 1)}")
 
             if verbose:
                 # Evaluation for this fold
@@ -188,8 +187,12 @@ class InterfaceNN(nn.Module):
                     confMatPred.extend(predicted.data.cpu().numpy())
                     confMatTarget.extend(targets.data.cpu().numpy())
 
+                avgLoss = currentLoss / (i + 1)
+                if verbose:
+                    print(f"Average validation loss: {avgLoss}")
+                    print("-" * 30)
                 # Calculate confusion matrix and metrics
-                self.results["Loss"].append(currentLoss)
+                self.results["Loss"].append(avgLoss)
                 self.results["Accuracy"].append(metrics.accuracy_score(confMatTarget, confMatPred) * 100)
                 self.results["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
                 self.results["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
@@ -197,7 +200,7 @@ class InterfaceNN(nn.Module):
         return sum(self.results["Loss"]) / len(self.results["Loss"])
 
     def printResults(self, fullReport: bool = False):
-        print("Results of training:")
+        print("\nResults of training:")
         print("=" * 30)
 
         keys: list[str] = list(self.results.keys())
@@ -215,23 +218,23 @@ class InterfaceNN(nn.Module):
         print("Average:")
         print("-" * 30)
 
-        avgAccuracy = sum(self.results[keys[1]]) / folds * 100
-        avgPrecision = sum(self.results[keys[2]]) / folds * 100
-        avgRecall = sum(self.results[keys[3]]) / folds * 100
+        avgAccuracy = sum(self.results[keys[1]]) / folds
+        avgPrecision = sum(self.results[keys[2]]) / folds
+        avgRecall = sum(self.results[keys[3]]) / folds
 
         print(f"Accuracy: {avgAccuracy:.2f}%")
         print(f"Precision: {avgPrecision:.2f}%")
         print(f"Recall: {avgRecall:.2f}%")
         print("=" * 30)
 
-    def optimizeLR(self,
-                   bounds: tuple[float, float],
-                   trainingData: Dataset = None,
-                   init_points: int = 5,
-                   n_iter: int = 10,
-                   folds: int = None,
-                   epochs: int = None,
-                   batchSize: int = None):
+    def optimize(self,
+                 bounds: dict[str, tuple[float, float]],
+                 trainingData: Dataset = None,
+                 init_points: int = 5,
+                 n_iter: int = 10,
+                 folds: int = None,
+                 epochs: int = None,
+                 batchSize: int = None):
 
         # Initialize parameters
         if trainingData is not None:
@@ -243,14 +246,14 @@ class InterfaceNN(nn.Module):
         if batchSize is not None:
             self.batchSize = batchSize
 
-        print("Start optimization")
-        # Give the parameter space from which the optimizer can choose
-        parameterBounds = {"lr": (bounds[0], bounds[1])}
+        print("Chosen bounds")
+        print(bounds)
 
+        print("Start optimization")
         # Create the optimizer object
         optimizer = BayesianOptimization(
             f=self.trainOnData,
-            pbounds=parameterBounds
+            pbounds=bounds
         )
 
         optimizer.maximize(
@@ -258,5 +261,5 @@ class InterfaceNN(nn.Module):
             n_iter=n_iter
         )
 
-        self.bestLR = optimizer.max["params"]["lr"]
-        print(f"Best learning rate is: {self.bestLR:.8f}")
+        print(f"Best parameters:\n {optimizer.max}")
+        return optimizer.max["params"]

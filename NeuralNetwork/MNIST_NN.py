@@ -56,14 +56,21 @@ if __name__ == '__main__':
     dataset = ConcatDataset([trainDataset, testDataset])
     network.trainingData = dataset
 
-    network.optimizeLR(
-        bounds=(1e-5, 1e-3),
+    bounds = {
+        "lr": (1e-6, 1e-3)
+    }
+
+    """
+    parameters = network.optimize(
+        bounds=bounds,
         trainingData=trainDataset,
         n_iter=1,
         init_points=1)
+    """
 
     network.trainOnData(trainingData=trainDataset,
                         verbose=True,
-                        lr=network.bestLR)
+                        batchSize=16,
+                        lr=1e-5)
 
-    network.printResults()
+    network.printResults(fullReport=True)
