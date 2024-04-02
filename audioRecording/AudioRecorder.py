@@ -100,7 +100,7 @@ class Audiorecorder:
         # Set device as default
         sd.default.device[1] = index
 
-    def continuousRecord(self):
+    def continuousRecord(self, showImages: bool = False):
         """
         This method continuously records audio until the user indicates they want to stop.
         After each recording, it asks the user if the recording should be saved.
