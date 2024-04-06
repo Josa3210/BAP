@@ -1,5 +1,4 @@
-function [val, extracted] = extractFeatures2(filepath,showImage)
-[val, fs] = audioread(filepath);
+function [val, extracted] = extractFeatures2(val, fs, showImage)
 
 % Get the envelopes
 maxVal = movmean(movmax(val,900),5000);
