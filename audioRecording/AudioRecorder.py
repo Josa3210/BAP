@@ -131,9 +131,9 @@ if __name__ == '__main__':
     print("\nFirst record the environment for noise extraction.")
     record = input("Press Y when ready and N to stop: ")
     if record.capitalize() == "Y":
-        goodNoise = ""
+        goodNoise = "N"
         noiseRecording = None
-        while record.capitalize() != "Y":
+        while goodNoise.capitalize() != "Y":
             print("Recording environment noise...")
             noiseRecording = recorder.record(3, True)
             goodNoise = input("Happy with noise? (Y or N): ")

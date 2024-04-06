@@ -1,7 +1,10 @@
+from matplotlib import pyplot as plt
+from numpy import linspace
 from scipy.io import wavfile
 import os.path
 import matlab.engine
 import torch
+import sounddevice as sd
 
 from featureExtraction.FeatureCacher import FeatureCacher
 
@@ -40,7 +43,11 @@ class FeatureExtractor:
 
     @noiseProfile.setter
     def noiseProfile(self, value):
-        self._noiseProfile = value
+        if isinstance(value, str):
+            fs, signal = wavfile.read(os.path.dirname(os.path.realpath(__file__)) + "\\" + value)
+            self.noiseProfile = signal
+        else:
+            self._noiseProfile = value
 
     # Extract all the .wav files and convert them into a readable file
     def extract(self, startPath: str):
@@ -87,7 +94,7 @@ class FeatureExtractor:
 
         profile = self.noiseProfile
         nFFT = 256
-        nFramesAveraged = 3
+        nFramesAveraged = 0
         overlap = 0.5  # Standard set to 0.5
-        filteredSignal = self.eng.spectralSubtraction(signal, profile, fs, nFFT, nFramesAveraged, overlap)
-        return filteredSignal
+        filteredSignal, SNR = self.eng.spectralSubtraction(signal, profile, fs, nFFT, nFramesAveraged, overlap, nargout=2)
+        return filteredSignal, SNR

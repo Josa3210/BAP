@@ -50,3 +50,4 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+featureExtraction/testFiltering1/

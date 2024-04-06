@@ -8,7 +8,7 @@ function [sFiltered, SNRDiff] = spectralSubtraction(signal, profile, fs, nFFT, n
         overlap (1,1) double = 0.5
         residualNoiseReduction logical = true
     end
-    
+
     window = hann(nFFT);
     nOverlap= floor(nFFT * overlap);
 
@@ -16,15 +16,16 @@ function [sFiltered, SNRDiff] = spectralSubtraction(signal, profile, fs, nFFT, n
     sNoise = stft(profile,fs,Window=window,OverlapLength=nOverlap,FFTLength=nFFT);
     sNoiseMag = abs(sNoise);
 
-    % Calculate average noise
-    avgNoise = sum(sNoiseMag,2)/size(sNoiseMag,2);
-    avgNoiseMat = avgNoise .* ones(1,size(sNoise,2));
-
     % Extract signal in freq domain
     sSignal = stft(signal,fs,Window=window,OverlapLength=nOverlap,FFTLength=nFFT);
     sSignalMag = abs(sSignal);
     sSignalAng = angle(sSignal);
     sSignalAngInfo = exp(1j*sSignalAng);
+
+     % Calculate average noise
+    avgNoise = sum(sNoiseMag,2)/size(sNoiseMag,2);
+    avgNoiseMat = avgNoise .* ones(1,size(sSignal,2));
+
 
     % Average frames
     if nFramesAveraged > 0
@@ -39,12 +40,12 @@ function [sFiltered, SNRDiff] = spectralSubtraction(signal, profile, fs, nFFT, n
     % Half wave rectify
     sExtracted(sExtracted < 0) = 0;
 
+    maxNoise = max(max(sNoiseMag));
     % Residual Noise Reduction
     if (residualNoiseReduction)
-        maxNoise = max(sNoiseMag);
         nFrames = size(sExtracted,2);
         for frame = 2:nFrames-1
-            if (sExtracted(frame) > 0) && (maxNoise(frame) > sExtracted(frame))
+            if (sExtracted(frame) > 0) && (maxNoise > sExtracted(frame))
                 minval = min([sExtracted(frame-1), sExtracted(frame), sExtracted(frame+1)]);
                 sExtracted(frame) = minval;
             end
@@ -55,7 +56,8 @@ function [sFiltered, SNRDiff] = spectralSubtraction(signal, profile, fs, nFFT, n
     sExtracted = sExtracted .* sSignalAngInfo;
 
     % Enlarge extracted signal for better reconstruction
-    sExtracted = [sExtracted(:,end/2:end), sExtracted, sExtracted(:,1:end/2-1)];
+    halfEnd = floor(size(sExtracted,2)/2);
+    sExtracted = [sExtracted(:,halfEnd:end), sExtracted, sExtracted(:,1:halfEnd-1)];
    
     sFiltered = real(istft(sExtracted,fs,Window=window,OverlapLength=nOverlap,FFTLength=nFFT));
     sFiltered = sFiltered(end/4:end*3/4);
@@ -69,7 +71,6 @@ function [sFiltered, SNRDiff] = spectralSubtraction(signal, profile, fs, nFFT, n
     SNRref = 20*log(signalSNR/noiseSNR);
     SNRfilt = 20*log(filteredSNR/noiseSNR);
 
-    SNRDiff = SNRfilt - SNRref;
-
+    SNRDiff = SNRref - SNRfilt;
 end
 
