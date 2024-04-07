@@ -11,7 +11,7 @@ from featureExtraction.FeatureCacher import FeatureCacher
 
 class FeatureExtractor:
 
-    def __init__(self, funcPath: str = "matlabFunctions/extractFeatures.m", filterPath: str = "matlabFunctions/spectralSubtraction.m", noiseProfile: list[float] = None):
+    def __init__(self, funcPath: str = "matlabFunctions/extractTKEOFeatures.m", filterPath: str = "matlabFunctions/spectralSubtraction.m", noiseProfile: list[float] = None):
         # Get the directory where this file is locate and add the path to the function to it
         self.funcPath = os.path.dirname(os.path.realpath(__file__)) + "\\" + funcPath
         self.filterPath = os.path.dirname(os.path.realpath(__file__)) + "\\" + filterPath

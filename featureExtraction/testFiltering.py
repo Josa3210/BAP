@@ -42,7 +42,7 @@ def filterTest(extractor: FeatureExtractor):
 def extractorTest(extractor: FeatureExtractor):
     startPath = "testFiltering1"
     amSounds = 5
-    #figure, axis = plt.subplots(1, amSounds)
+    # figure, axis = plt.subplots(1, amSounds)
     counter = 0
     for file in os.listdir(startPath):
         if file.endswith(".wav") and file != "noiseProfile.wav":
@@ -50,7 +50,7 @@ def extractorTest(extractor: FeatureExtractor):
             filePath = startPath + "\\" + file
 
             fs, soundSignal = wavfile.read(filePath)
-            time = np.arange(0, len(soundSignal)/fs, 1/fs)
+            time = np.arange(0, len(soundSignal) / fs, 1 / fs)
             # sd.play(soundSignal, fs)
             # sd.wait()
 
