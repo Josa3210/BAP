@@ -11,7 +11,7 @@ from featureExtraction.FeatureCacher import FeatureCacher
 
 class FeatureExtractor:
 
-    def __init__(self, funcPath: str = "matlabFunctions/extractFeatures2.m", filterPath: str = "matlabFunctions/spectralSubtraction.m", noiseProfile: list[float] = None):
+    def __init__(self, funcPath: str = "matlabFunctions/extractFeatures.m", filterPath: str = "matlabFunctions/spectralSubtraction.m", noiseProfile: list[float] = None):
         # Get the directory where this file is locate and add the path to the function to it
         self.funcPath = os.path.dirname(os.path.realpath(__file__)) + "\\" + funcPath
         self.filterPath = os.path.dirname(os.path.realpath(__file__)) + "\\" + filterPath
@@ -50,7 +50,7 @@ class FeatureExtractor:
             self._noiseProfile = value
 
     # Extract all the .wav files and convert them into a readable file
-    def extract(self, startPath: str):
+    def extractDirectory(self, startPath: str):
         for file in os.listdir(startPath):
             if file.endswith(".wav"):
                 # Combine filepath with current file
@@ -75,7 +75,7 @@ class FeatureExtractor:
                     filteredSignal = self.filter(signal, fs)
 
                     # Send data to Matlab and receive the transformed signal
-                    result = self.eng.extractFeatures(filteredSignal, fs)
+                    result = self.extract(filteredSignal, fs)
 
                     # Convert to tensor and flatten to remove 1 dimension
                     torchResult = torch.flatten(torch.Tensor(result))
@@ -98,3 +98,7 @@ class FeatureExtractor:
         overlap = 0.5  # Standard set to 0.5
         filteredSignal, SNR = self.eng.spectralSubtraction(signal, profile, fs, nFFT, nFramesAveraged, overlap, nargout=2)
         return filteredSignal, SNR
+
+    def extract(self, signal, fs):
+        result = self.eng.extractFeatures(signal, fs)
+        return result
