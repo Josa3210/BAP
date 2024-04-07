@@ -1,7 +1,6 @@
 import os.path
 from pathlib import Path
 
-import numpy
 import sounddevice as sd
 from matplotlib import pyplot as plt
 from numpy import linspace
@@ -124,10 +123,21 @@ class Audiorecorder:
 
 
 if __name__ == '__main__':
-    directory = input("In which directory will you save the files?: ")
-    sampleRate = input("What sampleRate do you use?: ")
-    channels = input("How many channels do you use?: ")
-    recorder = Audiorecorder(directory, int(sampleRate), int(channels))
+    directory = input("In which directory will you save the files? (Don't forget to add '/' at the end): ")
+    fs = input("What sampleRate do you use?: ")
+    ch = input("How many channels do you use?: ")
+    recorder = Audiorecorder(directory, int(fs), int(ch))
 
-    print("Start recording...")
-    recorder.continuousRecord(showImages=True)
+    print("\nFirst record the environment for noise extraction.")
+    record = input("Press Y when ready and N to stop: ")
+    if record.capitalize() == "Y":
+        goodNoise = "N"
+        noiseRecording = None
+        while goodNoise.capitalize() != "Y":
+            print("Recording environment noise...")
+            noiseRecording = recorder.record(3, True)
+            goodNoise = input("Happy with noise? (Y or N): ")
+        recorder.save(noiseRecording)
+
+        print("Start recording...")
+        recorder.continuousRecord(showImages=True)
