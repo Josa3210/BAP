@@ -36,7 +36,7 @@ def filterTest(extractor: FeatureExtractor, path: str):
 
 
 def extractorTest(extractor: FeatureExtractor):
-    startPath = "testFiltering1"
+    startPath = "testFilteringCelThuis"
     # figure, axis = plt.subplots(1, amSounds)
     counter = 0
     for file in os.listdir(startPath):
@@ -73,5 +73,5 @@ def extractorTest(extractor: FeatureExtractor):
 if __name__ == '__main__':
     fExtractor = FeatureExtractorTKEO()
     fExtractor.noiseProfile = r"testData\testFiltering\noiseProfile1.wav"
-    startPath = "testData\\testFiltering"
+    startPath = "testData\\testFilteringVDB"
     filterTest(fExtractor, startPath)
