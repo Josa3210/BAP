@@ -6,18 +6,16 @@ from numpy import linspace
 from scipy.io import wavfile
 import sounddevice as sd
 
-from featureExtraction.FeatureExtractor import FeatureExtractor
+from featureExtraction.FeatureExtractor import FeatureExtractor, FeatureExtractorTKEO
 
 
-def filterTest(extractor: FeatureExtractor):
-    startPath = "testFiltering1"
-    amSounds = 5
-    figure, axis = plt.subplots(2, amSounds)
-    counter = 0
-    for file in os.listdir(startPath):
-        if file.endswith(".wav") and file != "noiseProfile.wav":
+def filterTest(extractor: FeatureExtractor, path: str):
+
+    for file in os.listdir(path):
+        if file.endswith(".wav") and file != "noiseProfile1.wav":
+            figure, axis = plt.subplots(2, 1)
             # Combine filepath with current file
-            filePath = startPath + "\\" + file
+            filePath = path + "\\" + file
 
             fs, soundSignal = wavfile.read(filePath)
             time = linspace(0, len(soundSignal), fs * 5)
@@ -29,19 +27,16 @@ def filterTest(extractor: FeatureExtractor):
             # sd.play(filteredSound, fs)
             # sd.wait()
 
-            axis[0, counter].plot(time, soundSignal)
-            axis[0, counter].set_title(file)
-            axis[1, counter].plot(time[0:len(filteredSound)], filteredSound)
-            axis[1, counter].set_title(file + f" SNR: {SNR:.2f}")
+            axis[0].plot(time, soundSignal)
+            axis[0].set_title(file)
+            axis[1].plot(time[0:len(filteredSound)], filteredSound)
+            axis[1].set_title(file + f" SNR: {SNR:.2f}")
 
-            counter += 1
-
-    plt.show()
+            plt.show()
 
 
 def extractorTest(extractor: FeatureExtractor):
     startPath = "testFiltering1"
-    amSounds = 5
     # figure, axis = plt.subplots(1, amSounds)
     counter = 0
     for file in os.listdir(startPath):
@@ -76,8 +71,7 @@ def extractorTest(extractor: FeatureExtractor):
 
 
 if __name__ == '__main__':
-    fExtractor = FeatureExtractor()
-    fExtractor.noiseProfile = "testFiltering1\\noiseProfile.wav"
-    print(fExtractor.funcPath, fExtractor.filterPath)
-
-    extractorTest(extractor=fExtractor)
+    fExtractor = FeatureExtractorTKEO()
+    fExtractor.noiseProfile = r"testData\testFiltering\noiseProfile1.wav"
+    startPath = "testData\\testFiltering"
+    filterTest(fExtractor, startPath)

@@ -51,3 +51,7 @@ wheels/
 .installed.cfg
 *.egg
 featureExtraction/testFiltering1/
+
+audioRecording/testData
+featureExtraction/testData/
+
