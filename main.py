@@ -2,15 +2,15 @@ import os
 
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
-
-from featureExtraction.FeatureExtractor import FeatureExtractor
+from featureExtraction.FeatureExtractor import Filter
 from footstepDataset.FootstepDataset import FootstepDataset
 
 if __name__ == '__main__':
     currentPath = os.getcwd()
-    path = currentPath + r"\data"
-
-    dataset = FootstepDataset(path, "Ann")
+    path = currentPath + r"\data\testVDB"
+    filterExtr = Filter()
+    filterExtr.noiseProfile = r"..\data\testVDB\noiseProfile\noiseProfile1.wav"
+    dataset = FootstepDataset(path, 3, transForm=filterExtr)
     print(dataset.__getitem__(2))
 
     dataloader = DataLoader(dataset, batch_size=3, shuffle=True)

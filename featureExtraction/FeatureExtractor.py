@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+import numpy as np
 from scipy.io import wavfile
 import os.path
 import matlab.engine
@@ -73,8 +74,8 @@ class FeatureExtractor(ABC):
                     fs, signal = wavfile.read(filePath)
 
                     # Filter the result
-                    filteredSignal = self.filter(signal, fs)
-
+                    filteredSignal, SNR = self.filter(signal, fs)
+                    filteredSignal = np.array(filteredSignal).squeeze()
                     # Send data to Matlab and receive the transformed signal
                     result = self.extract(filteredSignal, fs)
 
@@ -219,7 +220,7 @@ class Filter(FeatureExtractor):
         return filteredSignal, SNR
 
     def extract(self, signal, fs):
-        pass
+        return signal
 
     def filterAdv(self, signal, fs, nFFT, nFramesAveraged, overlap):
         self.nFFT = nFFT
