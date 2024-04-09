@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from numpy import linspace
 from scipy.io.wavfile import write
 
-from featureExtraction.FeatureExtractor import Filter, FeatureExtractor
+from featureExtraction.FeatureExtractor import Filter
 
 
 class Audiorecorder:
