@@ -103,7 +103,7 @@ class FeatureExtractor(ABC):
 
     @abstractmethod
     def extract(self, signal, fs):
-        return self.eng.extractTKEOFeatures(signal, fs)
+        pass
 
 
 class FeatureExtractorTKEO(FeatureExtractor):
@@ -163,7 +163,7 @@ class FeatureExtractorSTFT(FeatureExtractor):
         pass
 
     def extract(self, signal, fs):
-        return self.eng.extractSTFTFeatures(signal, fs, self.nFFT, self.bound, self.logScale, False)
+        return self.eng.extractSTFTFeatures(signal, fs, self.nFFT, self.bound, self.logScale, True)
 
     def extractLogScale(self, signal, fs):
         self.logScale = True
@@ -174,3 +174,56 @@ class FeatureExtractorSTFT(FeatureExtractor):
         self.logScale = False
         extracted = self.extract(signal, fs)
         return extracted
+
+
+class Filter(FeatureExtractor):
+
+    def __init__(self, funcPath: str = "matlabFunctions/extractTKEOFeatures.m", filterPath: str = "matlabFunctions/spectralSubtraction.m", noiseProfile: list[float] = None):
+        super().__init__(funcPath, filterPath, noiseProfile)
+        self.nFFT = 256
+        self.nFramesAveraged = 0
+        self.overlap = 0.5  # Standard set to 0.5
+
+        pass
+
+    @property
+    def nFFT(self):
+        return self._nFFT
+
+    @nFFT.setter
+    def nFFT(self, nFFT):
+        self._nFFT = nFFT
+
+    @property
+    def nFramesAveraged(self):
+        return self._nFramesAveraged
+
+    @nFramesAveraged.setter
+    def nFramesAveraged(self, value):
+        self._nFramesAveraged = value
+
+    @property
+    def overlap(self):
+        return self._overlap
+
+    @overlap.setter
+    def overlap(self, value):
+        self._overlap = value
+
+    def filter(self, signal, fs):
+        if self.noiseProfile is None:
+            print(f"No noise profile found")
+            return
+
+        filteredSignal, SNR = self.eng.spectralSubtraction(signal, self.noiseProfile, fs, self.nFFT, self.nFramesAveraged, self.overlap, nargout=2)
+        return filteredSignal, SNR
+
+    def extract(self, signal, fs):
+        pass
+
+    def filterAdv(self, signal, fs, nFFT, nFramesAveraged, overlap):
+        self.nFFT = nFFT
+        self.nFramesAveraged = nFramesAveraged
+        self.overlap = overlap
+        filteredSignal, SNR = self.filter(signal, fs)
+        return filteredSignal, SNR

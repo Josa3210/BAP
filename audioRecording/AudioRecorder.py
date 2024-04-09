@@ -6,6 +6,8 @@ from matplotlib import pyplot as plt
 from numpy import linspace
 from scipy.io.wavfile import write
 
+from featureExtraction.FeatureExtractor import Filter, FeatureExtractor
+
 
 class Audiorecorder:
     def __init__(self, baseLink: str, sampleRate: int, channels: int):
@@ -99,7 +101,7 @@ class Audiorecorder:
         # Set device as default
         sd.default.device[1] = index
 
-    def continuousRecord(self, showImages: bool = False):
+    def continuousRecord(self, showImages: bool = False, filter: Filter = None):
         """
         This method continuously records audio until the user indicates they want to stop.
         After each recording, it asks the user if the recording should be saved.
@@ -110,12 +112,29 @@ class Audiorecorder:
         userInput = input("Ready to record? (Y or N): ")
         while userInput.capitalize() == "Y":
             recording = self.record(duration=duration, playBack=True)
+            if filter is not None:
+                filtered = filter.filterAdv(recording, fs, 512, 6, 0.5)
             if showImages:
-                plt.plot(time, recording)
-                plt.title("Recording")
-                plt.xlabel("Time")
-                plt.ylabel("Amplitude")
-                plt.show()
+                if filter is not None:
+                    figure, axis = plt.subplots(2, 1)
+                    axis[0].plot(time, recording)
+                    axis[0].title("Recording")
+                    axis[0].xlabel("Time")
+                    axis[0].ylabel("Amplitude")
+
+                    axis[1].plot(time[0:len(filtered) - 1], filtered)
+                    axis[1].title("Recording Filtered")
+                    axis[1].xlabel("Time")
+                    axis[1].ylabel("Amplitude")
+
+                    plt.show()
+                else:
+                    plt.plot(time, recording)
+                    plt.title("Recording")
+                    plt.xlabel("Time")
+                    plt.ylabel("Amplitude")
+                    plt.show()
+
             saveInput = input("Save? (Y or N): ")
             if saveInput.capitalize() == "Y":
                 self.save(recording)
@@ -128,6 +147,8 @@ if __name__ == '__main__':
     ch = input("How many channels do you use?: ")
     recorder = Audiorecorder(directory, int(fs), int(ch))
 
+    signalFilter = Filter()
+
     print("\nFirst record the environment for noise extraction.")
     record = input("Press Y when ready and N to stop: ")
     if record.capitalize() == "Y":
@@ -138,6 +159,7 @@ if __name__ == '__main__':
             noiseRecording = recorder.record(3, True)
             goodNoise = input("Happy with noise? (Y or N): ")
         recorder.save(noiseRecording)
+        signalFilter.noiseProfile = noiseRecording
 
         print("Start recording...")
-        recorder.continuousRecord(showImages=True)
+        recorder.continuousRecord(showImages=True, filter=signalFilter)

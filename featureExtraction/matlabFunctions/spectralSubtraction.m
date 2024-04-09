@@ -12,6 +12,16 @@ function [sFiltered, SNRDiff] = spectralSubtraction(signal, profile, fs, nFFT, n
     window = hann(nFFT);
     nOverlap= floor(nFFT * overlap);
 
+     % Get the envelopes
+    maxVal = movmean(movmax(signal,900),5000);
+    minVal = movmean(movmin(signal,900),5000);
+
+    % Filter values based on enveloppe
+    filtered = signal;
+    filtered(maxVal < filtered) = maxVal(maxVal < filtered);
+    filtered(filtered < minVal) = minVal(filtered < minVal);
+    signal = filtered;
+
     % Extract noise in freq domain
     sNoise = stft(profile,fs,Window=window,OverlapLength=nOverlap,FFTLength=nFFT);
     sNoiseMag = abs(sNoise);
@@ -63,10 +73,9 @@ function [sFiltered, SNRDiff] = spectralSubtraction(signal, profile, fs, nFFT, n
     sFiltered = sFiltered(end/4:end*3/4);
 
     % Calculate SNR
-    noiseSNR = sqrt(sum(profile)^2/size(profile,1)); 
+    noiseSNR = sqrt(sum(profile)^2/size(profile,1));
     signalSNR = sqrt(sum(signal)^2/size(signal,1));
     filteredSNR = sqrt(sum(sFiltered)^2/size(sFiltered,1));
-
 
     SNRref = 20*log(signalSNR/noiseSNR);
     SNRfilt = 20*log(filteredSNR/noiseSNR);
