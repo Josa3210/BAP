@@ -50,4 +50,8 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-featureExtraction/testFiltering1/
+featureExtraction/testData/testFilteringCelThuis/
+
+audioRecording/testData
+featureExtraction/testData/
+

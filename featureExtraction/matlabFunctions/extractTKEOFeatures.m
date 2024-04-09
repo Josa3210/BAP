@@ -4,15 +4,6 @@ function extracted = extractFeatures2(val, fs)
         fs (1,1) double
     end
 
-    % Get the envelopes
-    maxVal = movmean(movmax(val,900),5000);
-    minVal = movmean(movmin(val,900),5000);
-
-    % Filter values based on enveloppe
-    filtered = val;
-    filtered(maxVal < filtered) = maxVal(maxVal < filtered);
-    filtered(filtered < minVal) = minVal(filtered < minVal);
-
     % Butterworth 4-order lowpass filter on signal
     fc1 = 75;
     cutoff = fc1/(fs/2);
