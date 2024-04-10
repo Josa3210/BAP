@@ -1,10 +1,14 @@
+from pathlib import Path
+
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
+
+import utils
 from featureExtraction.FeatureExtractor import FeatureExtractor, Filter
 
 
 class FootstepDataset(Dataset):
-    def __init__(self, startPath: str, nrLabels: int, transForm: FeatureExtractor = None):
+    def __init__(self, startPath: Path, nrLabels: int, transForm: FeatureExtractor = None):
         self.featureExtractor = transForm
         generator = transForm.extractDirectory(startPath)
 
@@ -39,8 +43,7 @@ class FootstepDataset(Dataset):
 
 if __name__ == '__main__':
     filterExtr = Filter()
-    filterExtr.noiseProfile = r"..\\data\\testVDB\\noiseProfile\\noiseProfile1.wav"
-    dataset: FootstepDataset = FootstepDataset(r"D:\_Opslag\GitKraken\BAP\data\testVDB", 3, filterExtr)
-    dataloader = DataLoader(dataset);
-
-
+    noiseProfilePath = utils.getDataRoot().joinpath(r"testVDB\noiseProfile\noiseProfile1")
+    filterExtr.noiseProfile = noiseProfilePath
+    dataset: FootstepDataset = FootstepDataset(utils.getDataRoot().joinpath("testVDB"), 3, filterExtr)
+    dataloader = DataLoader(dataset)

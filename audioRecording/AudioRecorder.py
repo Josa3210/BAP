@@ -77,10 +77,7 @@ class Audiorecorder:
         fileName += ".wav"
 
         # Save in folder under given filename
-        path = self.baseLink.joinpath(Path(fileName))
-        parentPath = path.parent
-        if not parentPath.is_dir():
-            os.makedirs(parentPath)
+        path = self.baseLink.joinpath(fileName)
 
         write(path, self.sampleRate, recording)
         print(f"Recording saved under '{path}'")
