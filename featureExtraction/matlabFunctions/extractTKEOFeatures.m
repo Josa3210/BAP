@@ -1,4 +1,4 @@
-function extracted = extractFeatures2(val, fs)
+function extracted = extractTKEOFeatures(val, fs)
     arguments
         val (:,1) double
         fs (1,1) double
@@ -8,7 +8,7 @@ function extracted = extractFeatures2(val, fs)
     fc1 = 75;
     cutoff = fc1/(fs/2);
     [b,a]= butter(2, cutoff, "low");
-    val_LP = filter(b,a,filtered);
+    val_LP = filter(b,a,val);
 
     % Calculate TKEO
     squared = val_LP(2:end-1).^2;

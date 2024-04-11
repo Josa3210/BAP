@@ -1,5 +1,9 @@
+import glob
 from abc import ABC, abstractmethod
+from pathlib import Path
 
+import utils
+import numpy as np
 from scipy.io import wavfile
 import os.path
 import matlab.engine
@@ -10,10 +14,10 @@ from featureExtraction.FeatureCacher import FeatureCacher
 
 class FeatureExtractor(ABC):
     @abstractmethod
-    def __init__(self, funcPath: str = "matlabFunctions/extractTKEOFeatures.m", filterPath: str = "matlabFunctions/spectralSubtraction.m", noiseProfile: list[float] = None):
+    def __init__(self, funcPath: str = "extractTKEOFeatures.m", filterPath: str = "spectralSubtraction.m", noiseProfile: list[float] = None):
         # Get the directory where this file is locate and add the path to the function to it
-        self.funcPath = os.path.dirname(os.path.realpath(__file__)) + "\\" + funcPath
-        self.filterPath = os.path.dirname(os.path.realpath(__file__)) + "\\" + filterPath
+        self.funcPath = utils.getFunctionPath().joinpath(funcPath)
+        self.filterPath = utils.getFunctionPath().joinpath(filterPath)
 
         # Check if the path to the featureExtraction.m file exists
         if not os.path.isfile(self.funcPath):
@@ -29,7 +33,7 @@ class FeatureExtractor(ABC):
         self.eng = matlab.engine.start_matlab()
 
         # Set matlab directory to current directory
-        self.eng.cd(os.path.dirname(os.path.realpath(__file__)) + "\\matlabFunctions")
+        self.eng.cd(str(utils.getFunctionPath()))
 
         self.cacher = FeatureCacher()
 
@@ -43,50 +47,57 @@ class FeatureExtractor(ABC):
         return self._noiseProfile
 
     @noiseProfile.setter
-    def noiseProfile(self, value):
-        if isinstance(value, str):
-            fs, signal = wavfile.read(os.path.dirname(os.path.realpath(__file__)) + "\\" + value)
+    def noiseProfile(self, value: Path):
+        if isinstance(value, Path):
+            fs, signal = wavfile.read(str(value))
             self.noiseProfile = signal
         else:
             self._noiseProfile = value
 
     # Extract all the .wav files and convert them into a readable file
-    def extractDirectory(self, startPath: str):
-        for file in os.listdir(startPath):
-            if file.endswith(".wav"):
-                # Combine filepath with current file
-                filePath = startPath + "\\" + file
+    def extractDirectory(self, startPath: Path):
+        self.cacher.cachePath = startPath.joinpath("cache")
+        searchPath = str(startPath) + r"\**\*.wav"
+        for fileName in glob.glob(pathname=searchPath, recursive=True):
 
-                # Extract label
-                label = file.split(".wav")[0].split("_")[0]
+            # Combine filepath with current file
+            filePath = startPath.joinpath(fileName)
 
-                # Check if there is a cached version
-                filePathCache = filePath.split(".")[0] + ".cache"
-                if os.path.exists(filePathCache):
-                    # Read data from cache file
-                    torchResult = self.cacher.load(filePathCache)
+            # Extract label
+            label = filePath.parts[-1].split("_")[0]
 
-                    print(f"Reading from {filePathCache}")
+            # Ignore noiseProfiles
+            if "noiseProfile" in label:
+                continue
 
-                else:
-                    # Read wav file
-                    fs, signal = wavfile.read(filePath)
+            # Check if there is a cached version
+            cachePath = self.cacher.getCachePath(filePath)
+            if os.path.exists(cachePath):
+                # Read data from cache file
+                torchResult = self.cacher.load(cachePath)
 
-                    # Filter the result
-                    filteredSignal = self.filter(signal, fs)
+                print(f"Reading from {cachePath}")
 
-                    # Send data to Matlab and receive the transformed signal
-                    result = self.extract(filteredSignal, fs)
+            else:
+                # Read wav file
+                fs, signal = wavfile.read(filePath)
 
-                    # Convert to tensor and flatten to remove 1 dimension
-                    torchResult = torch.flatten(torch.Tensor(result))
+                # Filter the result
+                filteredSignal, SNR = self.filter(signal, fs)
+                filteredSignal = np.array(filteredSignal).squeeze()
+                # Send data to Matlab and receive the transformed signal
+                result = self.extract(filteredSignal, fs)
 
-                    # Create a cache file for future extraction
-                    self.cacher.cache(torchResult, filePathCache)
+                # Convert to tensor and flatten to remove 1 dimension
+                # torchResult = torch.flatten(torch.Tensor(result))
+                torchResult = torch.Tensor(result)
 
-                    print(f"Reading from {filePath}")
+                # Create a cache file for future extraction
+                self.cacher.cache(torchResult, cachePath)
 
-                yield torchResult, label
+                print(f"Reading from {filePath}")
+
+            yield torchResult, label
 
     @abstractmethod
     def filter(self, signal, fs):
@@ -107,11 +118,11 @@ class FeatureExtractor(ABC):
 
 
 class FeatureExtractorTKEO(FeatureExtractor):
-    def __init__(self, funcPath: str = "matlabFunctions/extractTKEOFeatures.m", filterPath: str = "matlabFunctions/spectralSubtraction.m", noiseProfile: list[float] = None):
+    def __init__(self, funcPath: str = "extractTKEOFeatures.m", filterPath: str = "spectralSubtraction.m", noiseProfile: list[float] = None):
         super().__init__(funcPath, filterPath, noiseProfile)
 
     def extract(self, signal, fs):
-        result = self.eng.extractFeatures(signal, fs)
+        result = self.eng.extractTKEOFeatures(signal, fs)
         return result
 
     def filter(self, signal, fs):
@@ -128,12 +139,11 @@ class FeatureExtractorTKEO(FeatureExtractor):
 
 
 class FeatureExtractorSTFT(FeatureExtractor):
-    def __init__(self, funcPath: str = "matlabFunctions/extractSTFTFeatures.m", filterPath: str = "matlabFunctions/spectralSubtraction.m", noiseProfile: list[float] = None, nFFT: int = 4096, bound: int = 50):
+    def __init__(self, funcPath: str = "extractSTFTFeatures.m", filterPath: str = "spectralSubtraction.m", noiseProfile: list[float] = None, nFFT: int = 4096, bound: int = 50):
         super().__init__(funcPath, filterPath, noiseProfile)
         self.nFFT = nFFT
         self.bound = bound
         self.logScale = False
-        pass
 
     @property
     def nFFT(self):
@@ -160,25 +170,34 @@ class FeatureExtractorSTFT(FeatureExtractor):
         self._logScale = logScale
 
     def filter(self, signal, fs):
-        pass
+        if self.noiseProfile is None:
+            print(f"No noise profile found")
+            return
+
+        profile = self.noiseProfile
+        nFFT = 256
+        nFramesAveraged = 0
+        overlap = 0.5  # Standard set to 0.5
+        filteredSignal, SNR = self.eng.spectralSubtraction(signal, profile, fs, nFFT, nFramesAveraged, overlap, nargout=2)
+        return filteredSignal, SNR
 
     def extract(self, signal, fs):
-        return self.eng.extractSTFTFeatures(signal, fs, self.nFFT, self.bound, self.logScale, True)
+        return self.extractNormal(signal, fs)
 
     def extractLogScale(self, signal, fs):
         self.logScale = True
-        extracted = self.extract(signal, fs)
+        extracted = self.eng.extractSTFTFeatures(signal, fs, self.nFFT, self.bound, self.logScale, False)
         return extracted
 
     def extractNormal(self, signal, fs):
         self.logScale = False
-        extracted = self.extract(signal, fs)
+        extracted = self.eng.extractSTFTFeatures(signal, fs, self.nFFT, self.bound, self.logScale, False)
         return extracted
 
 
 class Filter(FeatureExtractor):
 
-    def __init__(self, funcPath: str = "matlabFunctions/extractTKEOFeatures.m", filterPath: str = "matlabFunctions/spectralSubtraction.m", noiseProfile: list[float] = None):
+    def __init__(self, funcPath: str = "extractTKEOFeatures.m", filterPath: str = "spectralSubtraction.m", noiseProfile: list[float] = None):
         super().__init__(funcPath, filterPath, noiseProfile)
         self.nFFT = 256
         self.nFramesAveraged = 0
@@ -219,7 +238,7 @@ class Filter(FeatureExtractor):
         return filteredSignal, SNR
 
     def extract(self, signal, fs):
-        pass
+        return signal
 
     def filterAdv(self, signal, fs, nFFT, nFramesAveraged, overlap):
         self.nFFT = nFFT

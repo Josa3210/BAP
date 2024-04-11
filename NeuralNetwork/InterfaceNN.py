@@ -1,12 +1,15 @@
+from abc import abstractmethod
+
 import torch
 from bayes_opt import BayesianOptimization
 from sklearn import metrics
 from sklearn.model_selection import KFold
 from torch import nn, device, Tensor
-from torch.utils.data import Dataset, SubsetRandomSampler, DataLoader, dataset
+from torch.utils.data import Dataset, SubsetRandomSampler, DataLoader
 
 
 class InterfaceNN(nn.Module):
+    @abstractmethod
     def __init__(self):
         super().__init__()
         self.device = self.getDevice()
@@ -18,6 +21,7 @@ class InterfaceNN(nn.Module):
         self.folds = 5
         self.epochs = 5
 
+    @abstractmethod
     def forward(self, x: Tensor):
         pass
 

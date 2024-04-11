@@ -1,24 +1,41 @@
+import math
 import os
 
 import matplotlib.pyplot as plt
+import numpy as np
+import plotly.graph_objects as go
 from torch.utils.data import DataLoader
-
-from featureExtraction.FeatureExtractor import FeatureExtractor
+import torch
+import utils
+from featureExtraction.FeatureExtractor import Filter, FeatureExtractorTKEO, FeatureExtractorSTFT
 from footstepDataset.FootstepDataset import FootstepDataset
 
 if __name__ == '__main__':
-    currentPath = os.getcwd()
-    path = currentPath + r"\data"
+    path = utils.getDataRoot().joinpath("recordings")
+    filterExtr = FeatureExtractorSTFT()
+    filterExtr.noiseProfile = path.joinpath(r"noiseProfile\noiseProfile1.wav")
+    dataset = FootstepDataset(path, 4, transForm=filterExtr)
+    labels = dataset.labelArray
+    batchSize = 2
+    dataloader = DataLoader(dataset, batch_size=batchSize, shuffle=True)
+    print(f"Amount of batches: {len(dataloader)}")
+    trainingFeatures, trainingLabels = next(iter(dataloader))
+    print(f"Feature batch shape: {trainingFeatures.size()}")
+    print(f"Labels batch shape: {trainingLabels.size()}")
 
-    dataset = FootstepDataset(path, "Ann")
-    print(dataset.__getitem__(2))
+    fig, ax = plt.subplots(1, batchSize, subplot_kw=dict(projection='3d'))
+    for i in range(batchSize):
+        feature = trainingFeatures[i]
+        label = trainingLabels[i]
+        labelIndex = (label == 1).nonzero()
+        labelStr = labels[labelIndex]
+        t = np.arange(0, 50)
+        f = np.arange(0, 169)
+        f, t = np.meshgrid(f, t)
+        ax[i].plot_surface(t, f, feature)
+        ax[i].get_xaxis().set_visible(False)
 
-    dataloader = DataLoader(dataset, batch_size=3, shuffle=True)
-    train_features, train_labels = next(iter(dataloader))
-    print(f"Feature batch shape: {train_features.size()}")
-    print(f"Labels batch shape: {train_labels.size()}")
-    feature = train_features[0]
-    label = train_labels[0]
-    plt.plot(feature)
+        # ax[i].plot(feature)
+        ax[i].title.set_text(labelStr)
+
     plt.show()
-    print(f"Label: {label}")
