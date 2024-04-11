@@ -1,3 +1,4 @@
+import glob
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -48,7 +49,7 @@ class FeatureExtractor(ABC):
     @noiseProfile.setter
     def noiseProfile(self, value: Path):
         if isinstance(value, Path):
-            fs, signal = wavfile.read(Path)
+            fs, signal = wavfile.read(str(value))
             self.noiseProfile = signal
         else:
             self._noiseProfile = value
@@ -56,17 +57,21 @@ class FeatureExtractor(ABC):
     # Extract all the .wav files and convert them into a readable file
     def extractDirectory(self, startPath: Path):
         self.cacher.cachePath = startPath.joinpath("cache")
-        files = startPath.glob("*.wav")
-        for fileName in files:
+        searchPath = str(startPath) + r"\**\*.wav"
+        for fileName in glob.glob(pathname=searchPath, recursive=True):
 
             # Combine filepath with current file
             filePath = startPath.joinpath(fileName)
 
             # Extract label
-            label = fileName.parts[-1].split("_")[0]
+            label = filePath.parts[-1].split("_")[0]
+
+            # Ignore noiseProfiles
+            if "noiseProfile" in label:
+                continue
 
             # Check if there is a cached version
-            cachePath = self.cacher.getCachePath(fileName)
+            cachePath = self.cacher.getCachePath(filePath)
             if os.path.exists(cachePath):
                 # Read data from cache file
                 torchResult = self.cacher.load(cachePath)
@@ -84,7 +89,8 @@ class FeatureExtractor(ABC):
                 result = self.extract(filteredSignal, fs)
 
                 # Convert to tensor and flatten to remove 1 dimension
-                torchResult = torch.flatten(torch.Tensor(result))
+                # torchResult = torch.flatten(torch.Tensor(result))
+                torchResult = torch.Tensor(result)
 
                 # Create a cache file for future extraction
                 self.cacher.cache(torchResult, cachePath)
@@ -176,22 +182,22 @@ class FeatureExtractorSTFT(FeatureExtractor):
         return filteredSignal, SNR
 
     def extract(self, signal, fs):
-        return self.eng.extractSTFTFeatures(signal, fs, self.nFFT, self.bound, self.logScale, True)
+        return self.extractNormal(signal, fs)
 
     def extractLogScale(self, signal, fs):
         self.logScale = True
-        extracted = self.extract(signal, fs)
+        extracted = self.eng.extractSTFTFeatures(signal, fs, self.nFFT, self.bound, self.logScale, False)
         return extracted
 
     def extractNormal(self, signal, fs):
         self.logScale = False
-        extracted = self.extract(signal, fs)
+        extracted = self.eng.extractSTFTFeatures(signal, fs, self.nFFT, self.bound, self.logScale, False)
         return extracted
 
 
 class Filter(FeatureExtractor):
 
-    def __init__(self, funcPath: str = "matlabFunctions/extractTKEOFeatures.m", filterPath: str = "matlabFunctions/spectralSubtraction.m", noiseProfile: list[float] = None):
+    def __init__(self, funcPath: str = "extractTKEOFeatures.m", filterPath: str = "spectralSubtraction.m", noiseProfile: list[float] = None):
         super().__init__(funcPath, filterPath, noiseProfile)
         self.nFFT = 256
         self.nFramesAveraged = 0
