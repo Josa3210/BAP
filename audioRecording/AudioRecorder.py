@@ -7,8 +7,6 @@ from numpy import linspace
 from scipy.io.wavfile import write
 import time
 
-from featureExtraction.FeatureExtractor import Filter
-
 
 class Audiorecorder:
     def __init__(self, baseLink: str, sampleRate: int, channels: int):
@@ -99,7 +97,7 @@ class Audiorecorder:
         # Set device as default
         sd.default.device[1] = index
 
-    def continuousRecord(self, showImages: bool = False, filter: Filter = None):
+    def continuousRecord(self, showImages: bool = False):
         """
         This method continuously records audio until the user indicates they want to stop.
         After each recording, it asks the user if the recording should be saved.
@@ -112,32 +110,14 @@ class Audiorecorder:
         userInput = input("Ready to record? (Y or N): ")
         while userInput.capitalize() == "Y":
             recording = self.record(duration=duration, playBack=False)
-            if filter is not None:
-                filtered = filter.filterAdv(recording, fs, 512, 6, 0.5)
             if showImages:
-                if filter is not None:
-                    figure, axis = plt.subplots(2, 1)
-                    axis[0].plot(time, recording)
-                    axis[0].title("Recording")
-                    axis[0].xlabel("Time")
-                    axis[0].ylabel("Amplitude")
-
-                    axis[1].plot(time[0:len(filtered) - 1], filtered)
-                    axis[1].title("Recording Filtered")
-                    axis[1].xlabel("Time")
-                    axis[1].ylabel("Amplitude")
-
-                    plt.show(block=False)
-                    plt.pause(1.5)
-                    plt.close()
-                else:
-                    plt.plot(t, recording)
-                    plt.title("Recording")
-                    plt.xlabel("Time")
-                    plt.ylabel("Amplitude")
-                    plt.show(block=False)
-                    plt.pause(1.5)
-                    plt.close()
+                plt.plot(t, recording)
+                plt.title("Recording")
+                plt.xlabel("Time")
+                plt.ylabel("Amplitude")
+                plt.show(block=False)
+                plt.pause(1.5)
+                plt.close()
 
             saveInput = input("Save? (Y or N): ")
             if saveInput.capitalize() == "Y":
