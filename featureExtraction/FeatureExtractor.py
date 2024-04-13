@@ -89,7 +89,7 @@ class FeatureExtractor(ABC):
                 filteredSignal = np.array(filteredSignal).squeeze()
                 # Send data to Matlab and receive the transformed signal
                 result = self.extract(filteredSignal, fs)
-
+                result = np.array(result).squeeze()
                 # Convert to tensor and flatten to remove 1 dimension
                 # torchResult = torch.flatten(torch.Tensor(result))
                 torchResult = torch.Tensor(result)

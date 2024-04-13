@@ -27,11 +27,11 @@ class FootstepDataset(Dataset):
                 if labelName not in self.labelArray:
                     self.labelArray.append(labelName)
 
-                labelCode = np.zeros(nrLabels, dtype=int)
-                labelCode[self.labelArray.index(labelName)] = 1
+                labelCode = np.zeros(nrLabels, dtype=float)
+                target = self.labelArray.index(labelName)
 
                 # Append the acquired data to the array
-                self.dataArray.append([signal, labelCode])
+                self.dataArray.append([signal, target])
             except StopIteration:
                 break
 
