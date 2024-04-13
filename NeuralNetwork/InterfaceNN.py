@@ -18,6 +18,8 @@ class InterfaceNN(nn.Module):
         self.batchSize = 64
         self.learningRate = 1e-5
         self.bestLR = 1e-5
+        self.dropoutRate = 0.5
+        self.bestDR = 0.5
         self.folds = 5
         self.epochs = 5
 
@@ -50,6 +52,14 @@ class InterfaceNN(nn.Module):
         self._learningRate = lr
 
     @property
+    def dropoutRate(self):
+        return self._dropoutRate
+
+    @dropoutRate.setter
+    def dropoutRate(self, dr: float):
+        self._dropoutRate = dr
+
+    @property
     def epochs(self):
         return self._epochs
 
@@ -77,7 +87,8 @@ class InterfaceNN(nn.Module):
                     folds: int = None,
                     epochs: int = None,
                     batchSize: int = None,
-                    lr: int = None,
+                    lr: float = None,
+                    dr: float = None,
                     verbose: bool = False):
 
         # Initialize parameters
@@ -91,6 +102,8 @@ class InterfaceNN(nn.Module):
             self.batchSize = batchSize
         if lr is not None:
             self.learningRate = lr
+        if dr is not None:
+            self.dropoutRate = dr
 
         self.clearResults()
 
@@ -198,7 +211,7 @@ class InterfaceNN(nn.Module):
                 self.results["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
                 self.results["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
 
-        return sum(self.results["Loss"]) / len(self.results["Loss"])
+        return - sum(self.results["Loss"]) / len(self.results["Loss"])
 
     def printResults(self, fullReport: bool = False):
         print("Results of training:")
@@ -228,14 +241,14 @@ class InterfaceNN(nn.Module):
         print(f"Recall: {avgRecall:.2f}%")
         print("=" * 30)
 
-    def optimizeLR(self,
-                   bounds: tuple[float, float],
-                   trainingData: Dataset = None,
-                   init_points: int = 5,
-                   n_iter: int = 10,
-                   folds: int = None,
-                   epochs: int = None,
-                   batchSize: int = None):
+    def optimizeParams(self,
+                       bounds: dict[str, tuple[float, float]],
+                       trainingData: Dataset = None,
+                       init_points: int = 5,
+                       n_iter: int = 10,
+                       folds: int = None,
+                       epochs: int = None,
+                       batchSize: int = None):
 
         # Initialize parameters
         if trainingData is not None:
@@ -249,7 +262,7 @@ class InterfaceNN(nn.Module):
 
         print("Start optimization")
         # Give the parameter space from which the optimizer can choose
-        parameterBounds = {"lr": (bounds[0], bounds[1])}
+        parameterBounds = bounds
 
         # Create the optimizer object
         optimizer = BayesianOptimization(
@@ -262,5 +275,9 @@ class InterfaceNN(nn.Module):
             n_iter=n_iter
         )
 
-        self.bestLR = optimizer.max["params"]["lr"]
-        print(f"Best learning rate is: {self.bestLR:.8f}")
+        if "lr" in bounds.keys():
+            self.bestLR = optimizer.max["params"]["lr"]
+            print(f"Best learning rate is: {self.bestLR:.8f}")
+        if "dr" in bounds.keys():
+            self.bestDR = optimizer.max["params"]["dr"]
+            print(f"Best dropout rate is: {self.bestDR:.8f}")

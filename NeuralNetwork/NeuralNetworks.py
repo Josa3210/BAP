@@ -12,10 +12,10 @@ class NeuralNetworkTKEO(InterfaceNN):
         super().__init__()
         self.layers = nn.Sequential(
             nn.Linear(176319, 1024),
-            nn.Dropout(0.5),
+            nn.Dropout(self.dropoutRate),
             nn.ReLU(),
             nn.Linear(1024, 256),
-            nn.Dropout(0.5),
+            nn.Dropout(self.dropoutRate),
             nn.ReLU(),
             nn.Linear(256, nPersons),
             nn.Softmax(dim=1)
@@ -36,11 +36,13 @@ if __name__ == '__main__':
     batchSize = 4
     network = NeuralNetworkTKEO(len(participants))
 
-    network.optimizeLR(
-        bounds=(1e-5, 1e-3),
+    bounds = {"lr": (1e-5, 1e-3), "dr": (0.2, 0.7)}
+
+    network.optimizeParams(
+        bounds=bounds,
         trainingData=dataset,
-        n_iter=10,
-        init_points=5)
+        n_iter=10,  # n_iter: How many steps of bayesian optimization you want to perform. The more steps the more likely to find a good maximum you are.
+        init_points=5)  # init_points: How many steps of random exploration you want to perform. Random exploration can help by diversifying the exploration space.
 
     network.trainOnData(dataset, 5, 5, batchSize, verbose=True)
     network.printResults(True)
