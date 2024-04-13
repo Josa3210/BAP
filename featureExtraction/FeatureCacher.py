@@ -23,7 +23,7 @@ class FeatureCacher:
             return
 
         if not value.exists():
-            os.mkdir(value)
+            os.makedirs(value)
         self._cachePath = value
 
     def cache(self, result, cachePath):

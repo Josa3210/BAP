@@ -42,6 +42,9 @@ class FeatureExtractor(ABC):
 
         pass
 
+    def setCachePath(self, path: Path):
+        self.cacher.cachePath = path
+
     @property
     def noiseProfile(self):
         return self._noiseProfile
@@ -55,8 +58,7 @@ class FeatureExtractor(ABC):
             self._noiseProfile = value
 
     # Extract all the .wav files and convert them into a readable file
-    def extractDirectory(self, startPath: Path):
-        self.cacher.cachePath = startPath.joinpath("cache")
+    def extractDirectory(self, startPath: Path, filter: list[str] = None):
         searchPath = str(startPath) + r"\**\*.wav"
         for fileName in glob.glob(pathname=searchPath, recursive=True):
 
@@ -67,7 +69,7 @@ class FeatureExtractor(ABC):
             label = filePath.parts[-1].split("_")[0]
 
             # Ignore noiseProfiles
-            if "noiseProfile" in label:
+            if "noiseProfile" in label or (label is not None and label not in filter):
                 continue
 
             # Check if there is a cached version
