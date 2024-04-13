@@ -160,7 +160,7 @@ class InterfaceNN(nn.Module):
                     currentLoss += loss.item()
 
                     if verbose:
-                        if i % 500 == 1:
+                        if i % 10 == 1:
                             print(f"{i:4d} / {len(trainLoader)} batches: average loss = {currentLoss / i}")
 
             if verbose:
@@ -219,9 +219,9 @@ class InterfaceNN(nn.Module):
         print("Average:")
         print("-" * 30)
 
-        avgAccuracy = sum(self.results[keys[1]]) / folds * 100
-        avgPrecision = sum(self.results[keys[2]]) / folds * 100
-        avgRecall = sum(self.results[keys[3]]) / folds * 100
+        avgAccuracy = sum(self.results[keys[1]]) / folds
+        avgPrecision = sum(self.results[keys[2]]) / folds
+        avgRecall = sum(self.results[keys[3]]) / folds
 
         print(f"Accuracy: {avgAccuracy:.2f}%")
         print(f"Precision: {avgPrecision:.2f}%")
