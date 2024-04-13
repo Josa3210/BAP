@@ -4,13 +4,15 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader
 
 import utils
-from featureExtraction.FeatureExtractor import FeatureExtractor, Filter
+from featureExtraction.FeatureExtractor import FeatureExtractor, Filter, FeatureExtractorTKEO
 
 
 class FootstepDataset(Dataset):
-    def __init__(self, startPath: Path, nrLabels: int, transForm: FeatureExtractor = None):
+    def __init__(self, startPath: Path, nrLabels: int, transForm: FeatureExtractor = None, cachePath: Path = None, filter: list[str] = None):
         self.featureExtractor = transForm
-        generator = transForm.extractDirectory(startPath)
+        if cachePath is not None:
+            transForm.setCachePath(cachePath)
+        generator = transForm.extractDirectory(startPath=startPath, filter=filter)
 
         # Create an array and store the data as (feature, labelNumeric)
         self.dataArray = []
@@ -42,8 +44,9 @@ class FootstepDataset(Dataset):
 
 
 if __name__ == '__main__':
-    filterExtr = Filter()
-    noiseProfilePath = utils.getDataRoot().joinpath(r"testVDB\noiseProfile\noiseProfile1")
+    filterExtr = FeatureExtractorTKEO()
+    noiseProfilePath = utils.getDataRoot().joinpath(r"recordings\noiseProfile\noiseProfile1.wav")
+    cachePath: Path = utils.getDataRoot().joinpath(r"cache\TKEO")
     filterExtr.noiseProfile = noiseProfilePath
-    dataset: FootstepDataset = FootstepDataset(utils.getDataRoot().joinpath("testVDB"), 3, filterExtr)
+    dataset: FootstepDataset = FootstepDataset(utils.getDataRoot().joinpath("recordings"), 9, filterExtr, cachePath)
     dataloader = DataLoader(dataset)
