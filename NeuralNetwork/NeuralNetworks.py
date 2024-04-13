@@ -30,7 +30,7 @@ if __name__ == '__main__':
     filterExtr = FeatureExtractorTKEO()
     filterExtr.noiseProfile = path.joinpath(r"noiseProfile\noiseProfile2.wav")
     filterExtr.setCachePath(utils.getDataRoot().joinpath(r"cache\TKEO"))
-    participants = ["sylvia", "tine", "patrick", "celeste", "simon"]
+    participants = ["sylvia", "tine", "patrick", "celeste", "simon", "ann", "walter", "jan", "lieve"]
     dataset = FootstepDataset(path, len(participants), transForm=filterExtr, filter=participants)
     labels = dataset.labelArray
     batchSize = 4
@@ -40,9 +40,7 @@ if __name__ == '__main__':
 
     network.optimizeParams(
         bounds=bounds,
-        trainingData=dataset,
-        n_iter=10,  # n_iter: How many steps of bayesian optimization you want to perform. The more steps the more likely to find a good maximum you are.
-        init_points=5)  # init_points: How many steps of random exploration you want to perform. Random exploration can help by diversifying the exploration space.
+        trainingData=dataset)
 
-    network.trainOnData(dataset, 5, 5, batchSize, verbose=True)
+    network.trainOnData(trainingData=dataset, folds=5, epochs=8, batchSize=batchSize, verbose=True, lr=network.bestLR, dr=network.bestDR)
     network.printResults(True)

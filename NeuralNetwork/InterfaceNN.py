@@ -245,7 +245,7 @@ class InterfaceNN(nn.Module):
                        bounds: dict[str, tuple[float, float]],
                        trainingData: Dataset = None,
                        init_points: int = 5,
-                       n_iter: int = 10,
+                       n_iter: int = 25,
                        folds: int = None,
                        epochs: int = None,
                        batchSize: int = None):
@@ -271,8 +271,8 @@ class InterfaceNN(nn.Module):
         )
 
         optimizer.maximize(
-            init_points=init_points,
-            n_iter=n_iter
+            init_points=init_points,  # init_points: How many steps of random exploration you want to perform. Random exploration can help by diversifying the exploration space.
+            n_iter=n_iter  # n_iter: How many steps of bayesian optimization you want to perform. The more steps the more likely to find a good maximum you are.
         )
 
         if "lr" in bounds.keys():
