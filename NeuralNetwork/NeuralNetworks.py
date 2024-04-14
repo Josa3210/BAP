@@ -9,7 +9,7 @@ from footstepDataset.FootstepDataset import FootstepDataset
 
 class NeuralNetworkTKEO(InterfaceNN):
     def __init__(self, nPersons: int):
-        super().__init__()
+        super().__init__("NeuralNetworkTKEO")
         self.layers = nn.Sequential(
             nn.Linear(176319, 1024),
             nn.Dropout(self.dropoutRate),
@@ -35,12 +35,12 @@ if __name__ == '__main__':
     labels = dataset.labelArray
     batchSize = 4
     network = NeuralNetworkTKEO(len(participants))
-
     bounds = {"lr": (1e-5, 1e-3), "dr": (0.2, 0.7)}
 
-    network.optimizeParams(
-        bounds=bounds,
-        trainingData=dataset)
+    # network.optimizeParams(
+    #    bounds=bounds,
+    #    trainingData=dataset)
 
-    network.trainOnData(trainingData=dataset, folds=5, epochs=8, batchSize=batchSize, verbose=True, lr=network.bestLR, dr=network.bestDR)
+    network.trainOnData(trainingData=dataset, folds=2, epochs=1, batchSize=batchSize, verbose=True, lr=network.bestLR, dr=network.bestDR)
     network.printResults(True)
+    network.saveModel(utils.getDataRoot().joinpath("models"), idNr=2)

@@ -1,4 +1,6 @@
+import os
 from abc import abstractmethod
+from pathlib import Path
 
 import torch
 from bayes_opt import BayesianOptimization
@@ -6,11 +8,13 @@ from sklearn import metrics
 from sklearn.model_selection import KFold
 from torch import nn, device, Tensor
 from torch.utils.data import Dataset, SubsetRandomSampler, DataLoader
+from datetime import date
+import utils
 
 
 class InterfaceNN(nn.Module):
     @abstractmethod
-    def __init__(self):
+    def __init__(self, name: str):
         super().__init__()
         self.device = self.getDevice()
         self.results = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
@@ -23,9 +27,22 @@ class InterfaceNN(nn.Module):
         self.folds = 5
         self.epochs = 5
 
+        self.savePath = utils.getDataRoot().joinpath("model")
+        self._name = name
+
     @abstractmethod
     def forward(self, x: Tensor):
         pass
+
+    @property
+    def savePath(self):
+        return self._savePath
+
+    @savePath.setter
+    def savePath(self, value: Path):
+        if not value.exists():
+            os.makedirs(value)
+        self._savePath = value
 
     @property
     def trainingData(self):
@@ -212,6 +229,19 @@ class InterfaceNN(nn.Module):
                 self.results["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
 
         return - sum(self.results["Loss"]) / len(self.results["Loss"])
+
+    def saveModel(self, path: Path = None, name: str = None, idNr: int = None):
+        if name is None:
+            name = self._name
+        if idNr is not None:
+            name += "-" + str(idNr)
+        if path is None:
+            path = self.savePath
+
+        if not path.exists():
+            os.makedirs(path)
+
+        torch.save(self.state_dict(), path.joinpath(name + ".pth"))
 
     def printResults(self, fullReport: bool = False):
         print("Results of training:")
