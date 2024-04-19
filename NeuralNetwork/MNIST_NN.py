@@ -56,7 +56,7 @@ if __name__ == '__main__':
     dataset = ConcatDataset([trainDataset, testDataset])
     network.trainingData = dataset
 
-    network.optimizeLR(
+    network.optimizeParams(
         bounds=(1e-5, 1e-3),
         trainingData=trainDataset,
         n_iter=1,
