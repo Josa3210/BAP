@@ -17,8 +17,10 @@ class InterfaceNN(nn.Module):
     def __init__(self, name: str):
         super().__init__()
         self.device = self.getDevice()
-        self.results = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
+        self.trainingResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
+        self.testResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
         self.trainingData = None
+        self.testData = None
         self.batchSize = 64
         self.learningRate = 1e-5
         self.bestLR = 1e-5
@@ -51,6 +53,14 @@ class InterfaceNN(nn.Module):
     @trainingData.setter
     def trainingData(self, data):
         self._trainingData = data
+
+    @property
+    def testData(self):
+        return self._testData
+
+    @testData.setter
+    def testData(self, data):
+        self._testData = data
 
     @property
     def batchSize(self):
@@ -96,8 +106,60 @@ class InterfaceNN(nn.Module):
     def getDevice():
         return device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    def clearResults(self):
-        self.results = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
+    def clearResults(self, clearTestResults: bool = False):
+        if clearTestResults:
+            self.testResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
+        else:
+            self.trainingResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
+
+    def testOnData(self,
+                   testData: Dataset,
+                   batchSize: int = None
+                   ):
+        # Initialize parameters
+        if testData is not None:
+            self.testData = testData
+        if batchSize is not None:
+            self.batchSize = batchSize
+
+        if self.testData is None:
+            print("Define trainingdata using network.setTrainingData()")
+            return None
+
+        self.clearResults(clearTestResults=True)
+
+        testLoader = DataLoader(dataset=testData, shuffle=True)
+        lossFunction = nn.CrossEntropyLoss()
+
+        currentLoss = 0
+        confMatPred, confMatTarget = [], []
+
+        with torch.no_grad():
+            # Iterate over the test data and generate predictions
+            for i, batch in enumerate(testLoader):
+                # Get inputs
+                inputs, targets = batch
+
+                inputs = inputs.to(self.device)
+                targets = targets.to(self.device)
+
+                # Generate outputs
+                outputs = self(inputs)
+
+                # Set total and correct
+                _, predicted = torch.max(outputs.data, 1)
+
+                loss = lossFunction(outputs, targets)
+                currentLoss += loss.item()
+
+                confMatPred.extend(predicted.data.cpu().numpy())
+                confMatTarget.extend(targets.data.cpu().numpy())
+
+            # Calculate confusion matrix and metrics
+            self.testResults["Loss"].append(currentLoss)
+            self.testResults["Accuracy"].append(metrics.accuracy_score(confMatTarget, confMatPred) * 100)
+            self.testResults["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
+            self.testResults["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
 
     def trainOnData(self,
                     trainingData: Dataset = None,
@@ -122,7 +184,7 @@ class InterfaceNN(nn.Module):
         if dr is not None:
             self.dropoutRate = dr
 
-        self.clearResults()
+        self.clearResults(clearTestResults=False)
 
         if self.trainingData is None:
             print("Define trainingdata using network.setTrainingData()")
@@ -223,12 +285,12 @@ class InterfaceNN(nn.Module):
                     confMatTarget.extend(targets.data.cpu().numpy())
 
                 # Calculate confusion matrix and metrics
-                self.results["Loss"].append(currentLoss)
-                self.results["Accuracy"].append(metrics.accuracy_score(confMatTarget, confMatPred) * 100)
-                self.results["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
-                self.results["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
+                self.trainingResults["Loss"].append(currentLoss)
+                self.trainingResults["Accuracy"].append(metrics.accuracy_score(confMatTarget, confMatPred) * 100)
+                self.trainingResults["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
+                self.trainingResults["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
 
-        return - sum(self.results["Loss"]) / len(self.results["Loss"])
+        return - sum(self.trainingResults["Loss"]) / len(self.trainingResults["Loss"])
 
     def saveModel(self, path: Path = None, name: str = None, idNr: int = None):
         if name is None:
@@ -243,28 +305,35 @@ class InterfaceNN(nn.Module):
 
         torch.save(self.state_dict(), path.joinpath(name + ".pth"))
 
-    def printResults(self, fullReport: bool = False):
-        print("Results of training:")
+    def printResults(self, testResult: bool = False, fullReport: bool = False):
+        if testResult:
+            results = self.testResults
+            typeResults = "Test"
+        else:
+            typeResults = "Training"
+            results = self.trainingResults
+
+        print(f"\nResults of {typeResults}:")
         print("=" * 30)
 
-        keys: list[str] = list(self.results.keys())
-        folds = len(self.results[keys[0]])
+        keys: list[str] = list(results.keys())
+        folds = len(results[keys[0]])
         if fullReport:
 
             for i in range(folds):
                 print(f"For fold {i:d}:")
                 print("-" * 30)
-                print(f"Accuracy: {self.results[keys[1]][i]:.2f}%")
-                print(f"Precision: {self.results[keys[2]][i]:.2f}%")
-                print(f"Recall: {self.results[keys[3]][i]:.2f}%")
+                print(f"Accuracy: {results[keys[1]][i]:.2f}%")
+                print(f"Precision: {results[keys[2]][i]:.2f}%")
+                print(f"Recall: {results[keys[3]][i]:.2f}%")
                 print("-" * 30)
 
         print("Average:")
         print("-" * 30)
 
-        avgAccuracy = sum(self.results[keys[1]]) / folds
-        avgPrecision = sum(self.results[keys[2]]) / folds
-        avgRecall = sum(self.results[keys[3]]) / folds
+        avgAccuracy = sum(results[keys[1]]) / folds
+        avgPrecision = sum(results[keys[2]]) / folds
+        avgRecall = sum(results[keys[3]]) / folds
 
         print(f"Accuracy: {avgAccuracy:.2f}%")
         print(f"Precision: {avgPrecision:.2f}%")
