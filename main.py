@@ -14,9 +14,8 @@ if __name__ == '__main__':
     path = utils.getDataRoot().joinpath("recordings")
     filterExtr = FeatureExtractorTKEO()
     filterExtr.noiseProfile = path.joinpath(r"noiseProfile\noiseProfile2.wav")
-    filterExtr.setCachePath(utils.getDataRoot().joinpath(r"cache\TKEO"))
     participants = ["sylvia", "tine", "patrick", "celeste", "simon"]
-    dataset = FootstepDataset(path, 9, transForm=filterExtr, filter=participants)
+    dataset = FootstepDataset(path, transform=filterExtr, labelFilter=participants, cachePath=utils.getDataRoot().joinpath(r"cache\TKEO"))
     labels = dataset.labelArray
     batchSize = 4
     dataloader = DataLoader(dataset, batch_size=batchSize, shuffle=True)
@@ -29,8 +28,7 @@ if __name__ == '__main__':
     fig, ax = plt.subplots(1, batchSize)
     for i in range(batchSize):
         feature = trainingFeatures[i]
-        label = trainingLabels[i]
-        labelIndex = (label == 1).nonzero()
+        labelIndex = trainingLabels[i]
         labelStr = labels[labelIndex]
         # t = np.arange(0, 50)
         # f = np.arange(0, 169)
