@@ -75,6 +75,7 @@ class FeatureExtractorTKEO(FeatureExtractor):
         super().__init__(funcPath, filterPath, noiseProfile)
 
     def extract(self, signal, fs):
+        # Output size: 176319
         result = self.eng.extractTKEOFeatures(signal, fs)
         return result
 

@@ -1,3 +1,4 @@
+import torch
 from torch import Tensor, nn
 from torch.utils.data import DataLoader
 
@@ -10,19 +11,41 @@ from footstepDataset.FootstepDataset import FootstepDataset
 class NeuralNetworkTKEO(InterfaceNN):
     def __init__(self, nPersons: int):
         super().__init__("NeuralNetworkTKEO")
-        self.layers = nn.Sequential(
-            nn.Linear(176319, 1024),
-            nn.Dropout(self.dropoutRate),
+        # These layers are responsible for extracting features and fixing offsets
+        # General formula to detect size:
+        # Conv1d: (Size + 2*Padding - Filter )/Stride + 1
+        # MaxPool: [(Size + 2*Padding) - (dilation x (kernel - 1)) - 1]/stride + 1
+        self.fLayers = nn.Sequential(
+            # Dimensions: [bSize, 1, 176319]
+            nn.Conv1d(1, 10, 5, 1),
             nn.ReLU(),
-            nn.Linear(1024, 256),
-            nn.Dropout(self.dropoutRate),
+            # Dimensions: [bSize, 10, 176315]
+            nn.MaxPool1d(2, 2),
+            # Dimensions: [bSize, 10, 88157]
+            nn.Conv1d(10, 20, 5, 1),
             nn.ReLU(),
-            nn.Linear(256, nPersons),
+            # Dimensions: [bSize, 20, 88153]
+            nn.MaxPool1d(2, 2)
+            # Dimensions: [bSize, 10, 44076]
+        )
+        # These layers are responsible for classification after being passed through the fLayers
+        self.cLayers = nn.Sequential(
+            nn.Linear(20*44076, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, nPersons),
             nn.Softmax(dim=1)
         )
 
     def forward(self, x: Tensor):
-        return self.layers.forward(x)
+        # Add a dimension in front of feature --> "1 channel"
+        x = x.unsqueeze(1)
+        # Run through feature layers
+        x = self.fLayers.forward(x)
+        # Flatten en discard the different channels
+        x = torch.flatten(x, start_dim=1)
+        # Run through classification layers
+        x = self.cLayers.forward(x)
+        return x
 
 
 if __name__ == '__main__':
@@ -36,9 +59,9 @@ if __name__ == '__main__':
     labels = dataset.labelArray
     batchSize = 4
     network = NeuralNetworkTKEO(len(participants))
-    bounds = {"lr": (1e-5, 1e-3), "dr": (0.2, 0.7)}
+    # bounds = {"lr": (1e-5, 1e-3), "dr": (0.2, 0.7)}
 
-    network.optimizeParams(bounds=bounds, trainingData=dataset)
+    # network.optimizeParams(bounds=bounds, trainingData=dataset)
 
     network.trainOnData(trainingData=dataset, folds=5, epochs=5, batchSize=batchSize, verbose=True, lr=network.bestLR, dr=network.bestDR)
     network.printResults(fullReport=True)
