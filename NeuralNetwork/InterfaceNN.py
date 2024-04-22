@@ -161,13 +161,13 @@ class InterfaceNN(nn.Module):
             self.testResults["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
             self.testResults["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
 
+    @abstractmethod
     def trainOnData(self,
                     trainingData: Dataset = None,
                     folds: int = None,
                     epochs: int = None,
                     batchSize: int = None,
                     lr: float = None,
-                    dr: float = None,
                     verbose: bool = False):
 
         # Initialize parameters
@@ -181,8 +181,6 @@ class InterfaceNN(nn.Module):
             self.batchSize = batchSize
         if lr is not None:
             self.learningRate = lr
-        if dr is not None:
-            self.dropoutRate = dr
 
         self.clearResults(clearTestResults=False)
 
@@ -253,7 +251,9 @@ class InterfaceNN(nn.Module):
 
                     if verbose:
                         if i % 10 == 1:
-                            print(f"{i:4d} / {len(trainLoader)} batches: average loss = {currentLoss / i}")
+                            print(f"{i:4d} / {len(trainLoader) - 1} batches: average loss = {currentLoss / i}")
+                if verbose:
+                    print(f"{i:4d} / {len(trainLoader) - 1} batches: average loss = {currentLoss / i}")
 
             if verbose:
                 # Evaluation for this fold
@@ -349,6 +349,7 @@ class InterfaceNN(nn.Module):
                        epochs: int = None,
                        batchSize: int = None):
 
+        results = dict.fromkeys(bounds.keys(), 0)
         # Initialize parameters
         if trainingData is not None:
             self.trainingData = trainingData
@@ -374,9 +375,10 @@ class InterfaceNN(nn.Module):
             n_iter=n_iter  # n_iter: How many steps of bayesian optimization you want to perform. The more steps the more likely to find a good maximum you are.
         )
 
-        if "lr" in bounds.keys():
-            self.bestLR = optimizer.max["params"]["lr"]
-            print(f"Best learning rate is: {self.bestLR:.8f}")
-        if "dr" in bounds.keys():
-            self.bestDR = optimizer.max["params"]["dr"]
-            print(f"Best dropout rate is: {self.bestDR:.8f}")
+        optimizedKeys = optimizer.max["params"].keys()
+        for key in optimizedKeys:
+            val = optimizer.max["params"].get(key)
+            print(f"Best {key} is: {val:.8f}")
+            results.update({key: val})
+
+        return results
