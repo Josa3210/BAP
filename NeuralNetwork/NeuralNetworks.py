@@ -35,12 +35,12 @@ class NeuralNetworkTKEO(InterfaceNN):
         )
         # These layers are responsible for classification after being passed through the fLayers
 
-        # self.cInput = self.calcSizePool(self.calcSizeConv(self.calcSizePool(self.calcSizeConv(176319, self.fs1, stride=self.st1), 2, 2), self.fs2, stride=self.st2), 2, 2)
-        self.cInput = self.calcSizePool(self.calcSizeConv(176319, self.fs1, stride=self.st1), 2, 2)
+        self.cInput = self.calcSizePool(self.calcSizeConv(self.calcSizePool(self.calcSizeConv(176319, self.fs1, stride=self.st1), 2, 2), self.fs2, stride=self.st2), 2, 2)
+        # self.cInput = self.calcSizePool(self.calcSizeConv(176319, self.fs1, stride=self.st1), 2, 2)
 
         self.cLayers = nn.Sequential(
 
-            nn.Linear(self.ch1 * self.cInput, 1024),
+            nn.Linear(self.ch2 * self.cInput, 1024),
             nn.ReLU(),
             nn.Dropout(self.dropoutRate),
             nn.Linear(1024, 128),
@@ -85,14 +85,14 @@ if __name__ == '__main__':
     testPath = getDataRoot().joinpath("testData")
     testDataset = FootstepDataset(testPath, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEOtest"))
     labels = dataset.labelArray
-    batchSize = 4
+    batchSize = 32
     network = NeuralNetworkTKEO(len(participants))
 
-    bounds = {"lr": (1e-7, 1e-3), "dr": (0.2, 0.8)}
-    results = network.optimizeParams(bounds=bounds, trainingData=dataset)
+    # bounds = {"lr": (1e-4, 1), "dr": (0.2, 0.8)}
+    # results = network.optimizeParams(bounds=bounds, trainingData=dataset)
 
-    network.trainOnData(trainingData=dataset, folds=5, epochs=35, batchSize=batchSize, verbose=True, lr=results.get("lr"), dr=results.get("dr"))
-    # network.trainOnData(trainingData=dataset, folds=5, epochs=5, batchSize=batchSize, verbose=True)
+    # network.trainOnData(trainingData=dataset, folds=5, epochs=35, batchSize=batchSize, verbose=True, lr=results.get("lr"), dr=results.get("dr"))
+    network.trainOnData(trainingData=dataset, folds=5, epochs=50, lr=0.001, dr=0.6, batchSize=batchSize, verbose=True)
     network.printResults(fullReport=True)
     network.testOnData(testData=testDataset)
     network.printResults(testResult=True)

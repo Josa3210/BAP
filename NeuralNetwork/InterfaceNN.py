@@ -35,7 +35,7 @@ class InterfaceNN(nn.Module):
         self.learningRate = 1e-5
         self.dropoutRate = 0.5
         self.folds = 5
-        self.epochs = 5
+        self.epochs = 35
 
         self.savePath = utils.getDataRoot().joinpath("model")
         self._name = name
@@ -180,6 +180,12 @@ class InterfaceNN(nn.Module):
             self.testResults["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
             self.testResults["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
 
+    @staticmethod
+    def initWeights(m):
+        if isinstance(m, nn.Linear) or isinstance(m, nn.Conv1d):
+            torch.nn.init.xavier_normal_(m.weight)
+            m.bias.data.fill_(0.01)
+
     def trainOnData(self,
                     trainingData: Dataset = None,
                     folds: int = None,
@@ -209,7 +215,6 @@ class InterfaceNN(nn.Module):
             self.logger.setLevel(logging.DEBUG)
 
         self.logger.debug("Start training network")
-
         self.clearResults(clearTestResults=False)
 
         if self.trainingData is None:
@@ -223,8 +228,10 @@ class InterfaceNN(nn.Module):
         kFold = KFold(n_splits=self.folds, shuffle=True)
 
         for fold, (train_ids, validation_ids) in enumerate(kFold.split(self.trainingData)):
-            # Print
+            # Reset weights
+            self.apply(self.initWeights)
 
+            # Print
             self.logger.debug(f'\nFOLD {fold}')
             self.logger.debug('=' * 30)
 
@@ -280,7 +287,7 @@ class InterfaceNN(nn.Module):
                     # Print statistics
                     currentLoss += loss.item()
 
-                    if i % 10 == 1:
+                    if (i + 1) % 2 == 0:
                         self.logger.debug(f"{i:4d} / {len(trainLoader)} batches: average loss = {currentLoss / (i + 1)}")
 
                 lossPerEpoch.append(currentLoss / len(trainLoader))
@@ -420,10 +427,8 @@ class InterfaceNN(nn.Module):
         # Create the optimizer object
         optimizer = BayesianOptimization(
             f=self.trainOnData,
-            pbounds=parameterBounds,
-            verbose=0
+            pbounds=parameterBounds
         )
-
         optimizer.maximize(
             init_points=init_points,  # init_points: How many steps of random exploration you want to perform. Random exploration can help by diversifying the exploration space.
             n_iter=n_iter  # n_iter: How many steps of bayesian optimization you want to perform. The more steps the more likely to find a good maximum you are.

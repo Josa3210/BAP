@@ -1,7 +1,8 @@
-function extracted = extractTKEOFeatures(val, fs)
+function extracted = extractTKEOFeatures(val, fs, newFs)
     arguments
         val (:,1) double
         fs (1,1) double
+        newFs (1,1) double = 400
     end
 
     % Butterworth 4-order lowpass filter on signal
@@ -20,5 +21,8 @@ function extracted = extractTKEOFeatures(val, fs)
     fc = 20;
     cutoff = fc/(fs/2);
     [b,a]= butter(3, cutoff, "low");
-    extracted = filter(b,a,val_TKEO);
+    val_TKEO_LP = filter(b,a,val_TKEO);
+
+    % Resample
+    extracted = resample(val_TKEO_LP,newFs,fs);
 end
