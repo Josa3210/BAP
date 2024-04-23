@@ -1,4 +1,5 @@
 import glob
+import logging
 import os
 from pathlib import Path
 
@@ -8,6 +9,7 @@ from scipy.io import wavfile
 from torch.utils.data import Dataset, DataLoader
 
 import utils
+from customLogger import CustomLogger
 from featureExtraction.FeatureCacher import FeatureCacher
 from featureExtraction.FeatureExtractor import FeatureExtractor, Filter, FeatureExtractorTKEO
 
@@ -15,6 +17,8 @@ from featureExtraction.FeatureExtractor import FeatureExtractor, Filter, Feature
 class FootstepDataset(Dataset):
     def __init__(self, startPath: Path, transform: FeatureExtractor = None, cachePath: Path = None, labelFilter: list[str] = None):
         self.featureExtractor = transform
+        self.logger = CustomLogger.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
         if transform is None:
             self.featureExtractor = Filter()
 
@@ -71,7 +75,7 @@ class FootstepDataset(Dataset):
                 # Read data from cache file
                 torchResult = self.cacher.load(cachePath)
 
-                print(f"Reading from {cachePath}")
+                self.logger.debug(f"Reading from {cachePath}")
 
             else:
                 # Read wav file
@@ -90,7 +94,7 @@ class FootstepDataset(Dataset):
                 # Create a cache file for future extraction
                 self.cacher.cache(torchResult, cachePath)
 
-                print(f"Reading from {filePath}")
+                self.logger.debug(f"Reading from {filePath}")
 
             yield torchResult, label
 
