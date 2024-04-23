@@ -38,7 +38,7 @@ if __name__ == '__main__':
     network = NeuralNetworkTKEO(len(participants))
     bounds = {"lr": (1e-5, 1e-3), "dr": (0.2, 0.7)}
 
-    network.optimizeParams(bounds=bounds, trainingData=dataset)
+    # network.optimizeParams(bounds=bounds, trainingData=dataset)
 
     network.trainOnData(trainingData=dataset, folds=5, epochs=5, batchSize=batchSize, verbose=True, lr=network.bestLR, dr=network.bestDR)
     network.printResults(fullReport=True)

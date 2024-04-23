@@ -1,3 +1,4 @@
+import logging
 import os
 from abc import abstractmethod
 from pathlib import Path
@@ -10,12 +11,15 @@ from torch import nn, device, Tensor
 from torch.utils.data import Dataset, SubsetRandomSampler, DataLoader
 from datetime import date
 import utils
+from customLogger import CustomLogger
 
 
 class InterfaceNN(nn.Module):
     @abstractmethod
     def __init__(self, name: str):
         super().__init__()
+        self.logger = CustomLogger.getLogger(__name__)
+
         self.device = self.getDevice()
         self.trainingResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
         self.testResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
@@ -123,7 +127,7 @@ class InterfaceNN(nn.Module):
             self.batchSize = batchSize
 
         if self.testData is None:
-            print("Define trainingdata using network.setTrainingData()")
+            self.logger.info("Define trainingdata using network.setTrainingData()")
             return None
 
         self.clearResults(clearTestResults=True)
@@ -187,7 +191,7 @@ class InterfaceNN(nn.Module):
         self.clearResults(clearTestResults=False)
 
         if self.trainingData is None:
-            print("Define trainingdata using network.setTrainingData()")
+            self.logger.error("Define trainingdata using network.setTrainingData()")
             return None
 
         lossFunction = nn.CrossEntropyLoss()
@@ -197,8 +201,8 @@ class InterfaceNN(nn.Module):
         for fold, (train_ids, validation_ids) in enumerate(kFold.split(self.trainingData)):
             # Print
             if verbose:
-                print(f'\nFOLD {fold}')
-                print('=' * 30)
+                self.logger.info(f'\nFOLD {fold}')
+                self.logger.info('=' * 30)
 
             # Sample elements randomly from a given list of ids, no replacement.
             trainSubSampler = SubsetRandomSampler(train_ids)
@@ -220,8 +224,8 @@ class InterfaceNN(nn.Module):
             for epoch in range(self.epochs):
                 if verbose:
                     # Print epoch
-                    print(f'\nStarting epoch {epoch + 1}')
-                    print("-" * 30)
+                    self.logger.info(f'\nStarting epoch {epoch + 1}')
+                    self.logger.info("-" * 30)
 
                 # Set current loss value
                 currentLoss = 0.
@@ -253,11 +257,11 @@ class InterfaceNN(nn.Module):
 
                     if verbose:
                         if i % 10 == 1:
-                            print(f"{i:4d} / {len(trainLoader)} batches: average loss = {currentLoss / i}")
+                            self.logger.info(f"{i:4d} / {len(trainLoader)} batches: average loss = {currentLoss / i}")
 
             if verbose:
                 # Evaluation for this fold
-                print('-' * 30)
+                self.logger.info('-' * 30)
 
             # Lists for creating confusion matrix and loss
             currentLoss = 0.
@@ -313,32 +317,36 @@ class InterfaceNN(nn.Module):
             typeResults = "Training"
             results = self.trainingResults
 
-        print(f"\nResults of {typeResults}:")
-        print("=" * 30)
-
         keys: list[str] = list(results.keys())
         folds = len(results[keys[0]])
+
+        if folds == 0:
+            self.logger.warning("No folds found. Exiting")
+            return
+
+        self.logger.info(f"\nResults of {typeResults}:")
+        self.logger.info("=" * 30)
+
         if fullReport:
-
             for i in range(folds):
-                print(f"For fold {i:d}:")
-                print("-" * 30)
-                print(f"Accuracy: {results[keys[1]][i]:.2f}%")
-                print(f"Precision: {results[keys[2]][i]:.2f}%")
-                print(f"Recall: {results[keys[3]][i]:.2f}%")
-                print("-" * 30)
+                self.logger.info(f"For fold {i:d}:")
+                self.logger.info("-" * 30)
+                self.logger.info(f"Accuracy: {results[keys[1]][i]:.2f}%")
+                self.logger.info(f"Precision: {results[keys[2]][i]:.2f}%")
+                self.logger.info(f"Recall: {results[keys[3]][i]:.2f}%")
+                self.logger.info("-" * 30)
 
-        print("Average:")
-        print("-" * 30)
+        self.logger.info("Average:")
+        self.logger.info("-" * 30)
 
         avgAccuracy = sum(results[keys[1]]) / folds
         avgPrecision = sum(results[keys[2]]) / folds
         avgRecall = sum(results[keys[3]]) / folds
 
-        print(f"Accuracy: {avgAccuracy:.2f}%")
-        print(f"Precision: {avgPrecision:.2f}%")
-        print(f"Recall: {avgRecall:.2f}%")
-        print("=" * 30)
+        self.logger.info(f"Accuracy: {avgAccuracy:.2f}%")
+        self.logger.info(f"Precision: {avgPrecision:.2f}%")
+        self.logger.info(f"Recall: {avgRecall:.2f}%")
+        self.logger.info("=" * 30)
 
     def optimizeParams(self,
                        bounds: dict[str, tuple[float, float]],
@@ -359,7 +367,7 @@ class InterfaceNN(nn.Module):
         if batchSize is not None:
             self.batchSize = batchSize
 
-        print("Start optimization")
+        self.logger.info("Start optimization")
         # Give the parameter space from which the optimizer can choose
         parameterBounds = bounds
 
@@ -376,7 +384,7 @@ class InterfaceNN(nn.Module):
 
         if "lr" in bounds.keys():
             self.bestLR = optimizer.max["params"]["lr"]
-            print(f"Best learning rate is: {self.bestLR:.8f}")
+            self.logger.info(f"Best learning rate is: {self.bestLR:.8f}")
         if "dr" in bounds.keys():
             self.bestDR = optimizer.max["params"]["dr"]
-            print(f"Best dropout rate is: {self.bestDR:.8f}")
+            self.logger.info(f"Best dropout rate is: {self.bestDR:.8f}")

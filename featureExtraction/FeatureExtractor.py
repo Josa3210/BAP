@@ -1,4 +1,5 @@
 import glob
+import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -9,6 +10,7 @@ import os.path
 import matlab.engine
 import torch
 
+from customLogger import CustomLogger
 from featureExtraction.FeatureCacher import FeatureCacher
 
 
@@ -19,14 +21,16 @@ class FeatureExtractor(ABC):
         self.funcPath = utils.getFunctionPath().joinpath(funcPath)
         self.filterPath = utils.getFunctionPath().joinpath(filterPath)
 
+        self.logger = CustomLogger.getLogger(__name__)
+
         # Check if the path to the featureExtraction.m file exists
         if not os.path.isfile(self.funcPath):
-            print(f"{self.funcPath} has not been found! Please add this file or specify location in the constructor (funcPath=)")
+            self.logger.error(f"{self.funcPath} has not been found! Please add this file or specify location in the constructor (funcPath=)")
             return
 
         # Check if the path to the filter file exists
         if not os.path.isfile(self.filterPath):
-            print(f"{self.filterPath} has not been found! Please add this file or specify location in the constructor (filterPath=)")
+            self.logger.error(f"{self.filterPath} has not been found! Please add this file or specify location in the constructor (filterPath=)")
             return
 
         # Matlab engine for running the necessary functions
@@ -55,15 +59,9 @@ class FeatureExtractor(ABC):
     @abstractmethod
     def filter(self, signal, fs):
         if self.noiseProfile is None:
-            print(f"No noise profile found")
+            self.logger.error(f"No noise profile found")
             return
-
-        profile = self.noiseProfile
-        nFFT = 256
-        nFramesAveraged = 0
-        overlap = 0.5  # Standard set to 0.5
-        filteredSignal, SNR = self.eng.spectralSubtraction(signal, profile, fs, nFFT, nFramesAveraged, overlap, nargout=2)
-        return filteredSignal, SNR
+        pass
 
     @abstractmethod
     def extract(self, signal, fs):
@@ -80,7 +78,7 @@ class FeatureExtractorTKEO(FeatureExtractor):
 
     def filter(self, signal, fs):
         if self.noiseProfile is None:
-            print(f"No noise profile found")
+            self.logger.error(f"No noise profile found")
             return
 
         profile = self.noiseProfile
@@ -123,9 +121,7 @@ class FeatureExtractorSTFT(FeatureExtractor):
         self._logScale = logScale
 
     def filter(self, signal, fs):
-        if self.noiseProfile is None:
-            print(f"No noise profile found")
-            return
+        super().filter(signal, fs)
 
         profile = self.noiseProfile
         nFFT = 256
@@ -183,9 +179,7 @@ class Filter(FeatureExtractor):
         self._overlap = value
 
     def filter(self, signal, fs):
-        if self.noiseProfile is None:
-            print(f"No noise profile found")
-            return
+        super().filter(signal, fs)
 
         filteredSignal, SNR = self.eng.spectralSubtraction(signal, self.noiseProfile, fs, self.nFFT, self.nFramesAveraged, self.overlap, nargout=2)
         return filteredSignal, SNR
