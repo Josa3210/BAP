@@ -13,34 +13,37 @@ from footstepDataset.FootstepDataset import FootstepDataset
 class NeuralNetworkTKEO(InterfaceNN):
     def __init__(self, nPersons: int):
         super().__init__("NeuralNetworkTKEO")
-        self.fs1 = 64
+        # Params layer1
+        self.fs1 = 128
+        self.ch1 = 5
+        self.st1 = 32
+
+        # Params layer 2
         self.fs2 = 64
+        self.ch2 = 10
+        self.st2 = 8
+
         # These layers are responsible for extracting features and fixing offsets
-        # General formula to detect size:
-        # Conv1d: (Size + 2*Padding - Filter )/Stride + 1
-        # MaxPool: [(Size + 2*Padding) - (dilation x (kernel - 1)) - 1]/stride + 1
         self.fLayers = nn.Sequential(
-            # Dimensions: [bSize, 1, 176319]
-            nn.Conv1d(1, 5, self.fs1, 1),
+            nn.Conv1d(in_channels=1, out_channels=self.ch1, kernel_size=self.fs1, stride=self.st1),
             nn.ReLU(),
-            # Dimensions: [bSize, 5, 176256]
-            nn.AvgPool1d(4, 4),
-            # Dimensions: [bSize, 5, 44064]
-            nn.Conv1d(5, 10, self.fs2, 1),
+            nn.AvgPool1d(2, 2),
+            nn.Conv1d(in_channels=self.ch1, out_channels=self.ch2, kernel_size=self.fs2, stride=self.st2),
             nn.ReLU(),
-            # Dimensions: [bSize, 10, 88097]
-            nn.AvgPool1d(4, 4)
-            # Dimensions: [bSize, 10, 44048]
+            nn.AvgPool1d(2, 2)
         )
         # These layers are responsible for classification after being passed through the fLayers
 
-        self.cInput = self.calcSizePool(self.calcSizeConv(self.calcSizePool(self.calcSizeConv(176319, self.fs1), 4, 4), self.fs2), 4, 4)
+        self.cInput = self.calcSizePool(self.calcSizeConv(self.calcSizePool(self.calcSizeConv(176319, self.fs1, stride=self.st1), 2, 2), self.fs2, stride=self.st2), 2, 2)
         self.cLayers = nn.Sequential(
-            nn.Linear(10 * self.cInput, 1024),
+            nn.Linear(self.ch2 * self.cInput, 1024),
             nn.ReLU(),
-            nn.Linear(1024, nPersons),
+            nn.Dropout(self.dropoutRate),
+            nn.Linear(1024, 128),
+            nn.ReLU(),
+            nn.Dropout(self.dropoutRate),
+            nn.Linear(128, nPersons),
             nn.Softmax(dim=1)
-
         )
 
     @staticmethod
@@ -67,13 +70,6 @@ class NeuralNetworkTKEO(InterfaceNN):
     def fs2(self, value):
         self._fs2 = value
 
-    def trainOnData(self, trainingData: Dataset = None, folds: int = None, epochs: int = None, batchSize: int = None, lr: float = None, fs1: int = None, fs2: int = None, verbose: bool = False):
-        if fs1 is not None:
-            self.fs1 = fs1
-        if fs2 is not None:
-            self.fs2 = fs2
-        return super().trainOnData(trainingData, folds, epochs, batchSize, lr, verbose)
-
     def forward(self, x: Tensor):
         # Add a dimension in front of feature --> "1 channel"
         x = x.unsqueeze(1)
@@ -97,12 +93,16 @@ if __name__ == '__main__':
     labels = dataset.labelArray
     batchSize = 4
     network = NeuralNetworkTKEO(len(participants))
-    bounds = {"lr": (1e-5, 1e-3), "fs1": (32, 256), "fs2": (32, 256)}
 
+    bounds = {"lr": (1e-7, 1e-3), "dr": (0.2, 0.8)}
     results = network.optimizeParams(bounds=bounds, trainingData=dataset)
 
-    network.trainOnData(trainingData=dataset, folds=5, epochs=5, batchSize=batchSize, verbose=True, lr=results.get("lr"), fs1=math.floor(results.get("fs1")), fs2=math.floor(results.get("fs2")))
+    network.trainOnData(trainingData=dataset, folds=5, epochs=50, batchSize=batchSize, verbose=True, lr=results.get("lr"), dr=results.get("dr"))
+    # network.trainOnData(trainingData=dataset, folds=5, epochs=5, batchSize=batchSize, verbose=True)
     network.printResults(fullReport=True)
     network.testOnData(testData=testDataset)
     network.printResults(testResult=True)
-    network.saveModel(getDataRoot().joinpath("models"), idNr=2)
+    network.printLoss()
+    savePrompt = input("Do you want to save? (Y or N) ")
+    if savePrompt.capitalize() == "Y":
+        network.saveModel(getDataRoot().joinpath("models"), name="conv", idNr=1)

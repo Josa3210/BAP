@@ -1,10 +1,12 @@
 import logging
+import math
 import os
 from abc import abstractmethod
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import torch
-from bayes_opt import BayesianOptimization
+from bayes_opt import BayesianOptimization, UtilityFunction
 from sklearn import metrics
 from sklearn.model_selection import KFold
 from torch import nn, device, Tensor
@@ -21,15 +23,17 @@ class InterfaceNN(nn.Module):
         self.logger = CustomLogger.getLogger(__name__)
 
         self.device = self.getDevice()
+
         self.trainingResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
         self.testResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
+        self.lossesPerFold = []
+
         self.trainingData = None
         self.testData = None
+
         self.batchSize = 64
         self.learningRate = 1e-5
-        self.bestLR = 1e-5
         self.dropoutRate = 0.5
-        self.bestDR = 0.5
         self.folds = 5
         self.epochs = 5
 
@@ -116,6 +120,17 @@ class InterfaceNN(nn.Module):
         else:
             self.trainingResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
 
+    def printLoss(self):
+        xEpochs = list(range(self.epochs))
+        for i in range(self.folds):
+            plt.plot(xEpochs, self.lossesPerFold[i], label=f"Fold {i + 1}")
+        plt.title("Average loss per epoch", fontsize=30)
+        plt.xlabel("Epochs")
+        plt.xticks([i + 1 for i in xEpochs])
+        plt.ylabel("Average loss")
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+        plt.show()
+
     def testOnData(self,
                    testData: Dataset,
                    batchSize: int = None
@@ -172,6 +187,7 @@ class InterfaceNN(nn.Module):
                     epochs: int = None,
                     batchSize: int = None,
                     lr: float = None,
+                    dr: float = None,
                     verbose: bool = False):
 
         # Initialize parameters
@@ -185,6 +201,15 @@ class InterfaceNN(nn.Module):
             self.batchSize = batchSize
         if lr is not None:
             self.learningRate = lr
+        if dr is not None:
+            self.dropoutRate = dr
+
+        if not verbose:
+            self.logger.setLevel(logging.INFO)
+        else:
+            self.logger.setLevel(logging.DEBUG)
+
+        self.logger.debug("Start training network")
 
         self.clearResults(clearTestResults=False)
 
@@ -193,14 +218,16 @@ class InterfaceNN(nn.Module):
             return None
 
         lossFunction = nn.CrossEntropyLoss()
+        self.lossesPerFold = []
+        lossPerEpoch = []
 
         kFold = KFold(n_splits=self.folds, shuffle=True)
 
         for fold, (train_ids, validation_ids) in enumerate(kFold.split(self.trainingData)):
             # Print
-            if verbose:
-                self.logger.info(f'\nFOLD {fold}')
-                self.logger.info('=' * 30)
+
+            self.logger.debug(f'\nFOLD {fold}')
+            self.logger.debug('=' * 30)
 
             # Sample elements randomly from a given list of ids, no replacement.
             trainSubSampler = SubsetRandomSampler(train_ids)
@@ -218,12 +245,13 @@ class InterfaceNN(nn.Module):
             self.to(self.device)
             optimizer: torch.optim.Optimizer = torch.optim.Adam(self.parameters(), lr=self.learningRate)
 
+            lossPerEpoch = []
+
             # Start training epochs
             for epoch in range(self.epochs):
-                if verbose:
-                    # Print epoch
-                    self.logger.info(f'\nStarting epoch {epoch + 1}')
-                    self.logger.info("-" * 30)
+                # Print epoch
+                self.logger.debug(f'\nStarting epoch {epoch + 1}')
+                self.logger.debug("-" * 30)
 
                 # Set current loss value
                 currentLoss = 0.
@@ -253,13 +281,13 @@ class InterfaceNN(nn.Module):
                     # Print statistics
                     currentLoss += loss.item()
 
-                    if verbose:
-                        if i % 10 == 1:
-                            self.logger.info(f"{i:4d} / {len(trainLoader)} batches: average loss = {currentLoss / i}")
+                    if i % 10 == 1:
+                        self.logger.debug(f"{i:4d} / {len(trainLoader)} batches: average loss = {currentLoss / (i + 1)}")
 
-            if verbose:
-                # Evaluation for this fold
-                self.logger.info('-' * 30)
+                lossPerEpoch.append(currentLoss / len(trainLoader))
+
+            # Evaluation for this fold
+            self.logger.debug('-' * 30)
 
             # Lists for creating confusion matrix and loss
             currentLoss = 0.
@@ -287,25 +315,27 @@ class InterfaceNN(nn.Module):
                     confMatTarget.extend(targets.data.cpu().numpy())
 
                 # Calculate confusion matrix and metrics
-                self.trainingResults["Loss"].append(currentLoss)
+                self.trainingResults["Loss"].append(currentLoss / len(validationLoader))
                 self.trainingResults["Accuracy"].append(metrics.accuracy_score(confMatTarget, confMatPred) * 100)
                 self.trainingResults["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
                 self.trainingResults["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
 
+            self.lossesPerFold.append(lossPerEpoch)
         return - sum(self.trainingResults["Loss"]) / len(self.trainingResults["Loss"])
 
     def saveModel(self, path: Path = None, name: str = None, idNr: int = None):
-        if name is None:
-            name = self._name
+        fileName = self._name
+        if name is not None:
+            fileName += "-" + name
         if idNr is not None:
-            name += "-" + str(idNr)
+            fileName += "-" + str(idNr)
         if path is None:
             path = self.savePath
 
         if not path.exists():
             os.makedirs(path)
 
-        torch.save(self.state_dict(), path.joinpath(name + ".pth"))
+        torch.save(self.state_dict(), path.joinpath(fileName + ".pth"))
 
     def printResults(self, testResult: bool = False, fullReport: bool = False):
         if testResult:
@@ -356,6 +386,11 @@ class InterfaceNN(nn.Module):
                        batchSize: int = None):
 
         results = dict.fromkeys(bounds.keys(), 0)
+        params = ""
+        for key in results.keys():
+            params += " " + key + ","
+        self.logger.info(f"Starting optimization of parameters: {params[0:-1]}")
+
         # Initialize parameters
         if trainingData is not None:
             self.trainingData = trainingData
@@ -366,14 +401,14 @@ class InterfaceNN(nn.Module):
         if batchSize is not None:
             self.batchSize = batchSize
 
-        self.logger.info("Start optimization")
         # Give the parameter space from which the optimizer can choose
         parameterBounds = bounds
 
         # Create the optimizer object
         optimizer = BayesianOptimization(
             f=self.trainOnData,
-            pbounds=parameterBounds
+            pbounds=parameterBounds,
+            verbose=0
         )
 
         optimizer.maximize(
@@ -381,10 +416,13 @@ class InterfaceNN(nn.Module):
             n_iter=n_iter  # n_iter: How many steps of bayesian optimization you want to perform. The more steps the more likely to find a good maximum you are.
         )
 
+        self.logger.info("Finished optimizing")
         optimizedKeys = optimizer.max["params"].keys()
         for key in optimizedKeys:
             val = optimizer.max["params"].get(key)
-            print(f"Best {key} is: {val:.8f}")
+            if "fs" in key:
+                val = math.ceil(val)
+            self.logger.info(f"Best {key} is: {val}")
             results.update({key: val})
 
         return results
