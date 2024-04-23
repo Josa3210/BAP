@@ -180,7 +180,6 @@ class InterfaceNN(nn.Module):
             self.testResults["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
             self.testResults["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
 
-    @abstractmethod
     def trainOnData(self,
                     trainingData: Dataset = None,
                     folds: int = None,
@@ -336,6 +335,20 @@ class InterfaceNN(nn.Module):
             os.makedirs(path)
 
         torch.save(self.state_dict(), path.joinpath(fileName + ".pth"))
+
+    def loadModel(self, path: Path):
+        self.logger.info(f"Trying to download model from {path}")
+
+        if not path.exists():
+            self.logger.warning("Path does not exist")
+            return
+
+        self.load_state_dict(torch.load(path, map_location=self.device))
+        self.logger.info("Successfully downloaded model")
+        # Print model's state_dict
+        print("Model's state_dict:")
+        for param_tensor in self.state_dict():
+            print(param_tensor, "\t", self.state_dict()[param_tensor].size())
 
     def printResults(self, testResult: bool = False, fullReport: bool = False):
         if testResult:

@@ -11,6 +11,7 @@ from footstepDataset.FootstepDataset import FootstepDataset
 
 
 class NeuralNetworkTKEO(InterfaceNN):
+
     def __init__(self, nPersons: int):
         super().__init__("NeuralNetworkTKEO")
         # Params layer1
@@ -34,9 +35,12 @@ class NeuralNetworkTKEO(InterfaceNN):
         )
         # These layers are responsible for classification after being passed through the fLayers
 
-        self.cInput = self.calcSizePool(self.calcSizeConv(self.calcSizePool(self.calcSizeConv(176319, self.fs1, stride=self.st1), 2, 2), self.fs2, stride=self.st2), 2, 2)
+        # self.cInput = self.calcSizePool(self.calcSizeConv(self.calcSizePool(self.calcSizeConv(176319, self.fs1, stride=self.st1), 2, 2), self.fs2, stride=self.st2), 2, 2)
+        self.cInput = self.calcSizePool(self.calcSizeConv(176319, self.fs1, stride=self.st1), 2, 2)
+
         self.cLayers = nn.Sequential(
-            nn.Linear(self.ch2 * self.cInput, 1024),
+
+            nn.Linear(self.ch1 * self.cInput, 1024),
             nn.ReLU(),
             nn.Dropout(self.dropoutRate),
             nn.Linear(1024, 128),
@@ -54,22 +58,6 @@ class NeuralNetworkTKEO(InterfaceNN):
     def calcSizePool(inputSize, filterSize: int, stride: int, dilation: int = 1, padding: int = 0):
         return math.floor(((inputSize + 2 * padding) - (dilation * (filterSize - 1)) - 1) / stride) + 1
 
-    @property
-    def fs1(self):
-        return self._fs1
-
-    @fs1.setter
-    def fs1(self, value):
-        self._fs1 = value
-
-    @property
-    def fs2(self):
-        return self._fs2
-
-    @fs2.setter
-    def fs2(self, value):
-        self._fs2 = value
-
     def forward(self, x: Tensor):
         # Add a dimension in front of feature --> "1 channel"
         x = x.unsqueeze(1)
@@ -80,6 +68,12 @@ class NeuralNetworkTKEO(InterfaceNN):
         # Run through classification layers
         x = self.cLayers.forward(x)
         return x
+
+    def getTransformedSample(self, sample: torch.Tensor):
+        print(sample)
+        tSample = sample.unsqueeze(1)
+        sample = self.fLayers.forward(tSample)
+        print(sample)
 
 
 if __name__ == '__main__':
@@ -97,12 +91,14 @@ if __name__ == '__main__':
     bounds = {"lr": (1e-7, 1e-3), "dr": (0.2, 0.8)}
     results = network.optimizeParams(bounds=bounds, trainingData=dataset)
 
-    network.trainOnData(trainingData=dataset, folds=5, epochs=50, batchSize=batchSize, verbose=True, lr=results.get("lr"), dr=results.get("dr"))
+    network.trainOnData(trainingData=dataset, folds=5, epochs=35, batchSize=batchSize, verbose=True, lr=results.get("lr"), dr=results.get("dr"))
     # network.trainOnData(trainingData=dataset, folds=5, epochs=5, batchSize=batchSize, verbose=True)
     network.printResults(fullReport=True)
     network.testOnData(testData=testDataset)
     network.printResults(testResult=True)
     network.printLoss()
+
     savePrompt = input("Do you want to save? (Y or N) ")
     if savePrompt.capitalize() == "Y":
-        network.saveModel(getDataRoot().joinpath("models"), name="conv", idNr=1)
+        saveName = input("Which name do you want to give it?: ")
+        network.saveModel(getDataRoot().joinpath("models"), name=saveName)
