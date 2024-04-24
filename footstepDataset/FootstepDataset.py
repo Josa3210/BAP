@@ -27,9 +27,10 @@ class FootstepDataset(Dataset):
             self.cacher.cachePath = cachePath
 
         # Create an array and store the data as (feature, labelNumeric)
-        self.dataArray = []
-        self.labelArray = []
-
+        dataArray = []
+        labelArray = []
+        self.labelStrings = []
+        self.dataset = []
         self.labelFilter = labelFilter
 
         generator = self.extractDirectory(startPath=startPath)
@@ -39,18 +40,23 @@ class FootstepDataset(Dataset):
                 # Get all the extracted features and labels in string form
                 signal, labelName = next(generator)
 
-                if labelName not in self.labelArray:
-                    self.labelArray.append(labelName)
+                if labelName not in self.labelStrings:
+                    self.labelStrings.append(labelName)
 
-                target = self.labelArray.index(labelName)
+                target = self.labelStrings.index(labelName)
+                labelArray.append(target)
 
                 # Append the acquired data to the array
-                self.dataArray.append([signal, target])
+                dataArray.append(signal)
             except StopIteration:
+                dataArray = np.array(dataArray)
+                maxVal = np.max(dataArray)
+                dataArray /= maxVal
+                self.dataset = [[x, y] for x, y in zip(dataArray, labelArray)]
                 break
 
     def __getitem__(self, index):
-        row = self.dataArray[index]
+        row = self.dataset[index]
         return row[0], row[1]
 
         # Extract all the .wav files and convert them into a readable file
@@ -99,7 +105,7 @@ class FootstepDataset(Dataset):
             yield torchResult, label
 
     def __len__(self):
-        return len(self.dataArray)
+        return len(self.dataset)
 
 
 if __name__ == '__main__':
