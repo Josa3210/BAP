@@ -2,6 +2,7 @@ function extracted = extractTKEOFeatures(val, fs)
     arguments
         val (:,1) double
         fs (1,1) double
+        newFs (1,1) double = 4000
     end
 
     % Butterworth 4-order lowpass filter on signal
