@@ -15,32 +15,55 @@ class NeuralNetworkTKEO(InterfaceNN):
     def __init__(self, nPersons: int):
         super().__init__("NeuralNetworkTKEO")
         # Params layer1
-        self.fs1 = 128
+        self.fs1 = 64
         self.ch1 = 5
-        self.st1 = 32
+        self.st1 = 1
 
         # Params layer 2
         self.fs2 = 64
         self.ch2 = 10
-        self.st2 = 8
+        self.st2 = 1
+
+        # Params layer 3
+        self.fs3 = 64
+        self.ch3 = 10
+        self.st3 = 1
+
+        # Params layer 4
+        self.fs4 = 64
+        self.ch4 = 10
+        self.st4 = 1
+
+        # Params layer 5
+        self.fs5 = 64
+        self.ch5 = 10
+        self.st5 = 1
 
         # These layers are responsible for extracting features and fixing offsets
         self.fLayers = nn.Sequential(
-            nn.Conv1d(in_channels=1, out_channels=self.ch1, kernel_size=self.fs1, stride=self.st1),
+            nn.Conv1d(in_channels=1, out_channels=self.ch1, kernel_size=self.fs1, stride=self.st1, padding=round(self.fs1/2)),
             nn.ReLU(),
             nn.AvgPool1d(2, 2),
-            nn.Conv1d(in_channels=self.ch1, out_channels=self.ch2, kernel_size=self.fs2, stride=self.st2),
+            nn.Conv1d(in_channels=self.ch1, out_channels=self.ch2, kernel_size=self.fs2, stride=self.st2,padding=round(self.fs2/2)),
+            nn.ReLU(),
+            nn.AvgPool1d(2, 2),
+            nn.Conv1d(in_channels=self.ch2, out_channels=self.ch3, kernel_size=self.fs3, stride=self.st3,padding=round(self.fs3/2)),
+            nn.ReLU(),
+            nn.AvgPool1d(2, 2),
+            nn.Conv1d(in_channels=self.ch3, out_channels=self.ch4, kernel_size=self.fs4, stride=self.st4,padding=round(self.fs4/2)),
+            nn.ReLU(),
+            nn.AvgPool1d(2, 2),
+            nn.Conv1d(in_channels=self.ch4, out_channels=self.ch5, kernel_size=self.fs5, stride=self.st5,padding=round(self.fs5/2)),
             nn.ReLU(),
             nn.AvgPool1d(2, 2)
         )
         # These layers are responsible for classification after being passed through the fLayers
 
-        self.cInput = self.calcSizePool(self.calcSizeConv(self.calcSizePool(self.calcSizeConv(176319, self.fs1, stride=self.st1), 2, 2), self.fs2, stride=self.st2), 2, 2)
-        # self.cInput = self.calcSizePool(self.calcSizeConv(176319, self.fs1, stride=self.st1), 2, 2)
+        self.cInput = self.ch5*500
 
         self.cLayers = nn.Sequential(
 
-            nn.Linear(self.ch2 * self.cInput, 1024),
+            nn.Linear(self.cInput, 1024),
             nn.ReLU(),
             nn.Dropout(self.dropoutRate),
             nn.Linear(1024, 128),
@@ -84,7 +107,7 @@ if __name__ == '__main__':
     dataset = FootstepDataset(path, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEO"))
     testPath = getDataRoot().joinpath("testData")
     testDataset = FootstepDataset(testPath, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEOtest"))
-    labels = dataset.labelArray
+    labels = dataset.labelStrings
     batchSize = 32
     network = NeuralNetworkTKEO(len(participants))
 

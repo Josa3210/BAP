@@ -223,7 +223,6 @@ class InterfaceNN(nn.Module):
 
         lossFunction = nn.CrossEntropyLoss()
         self.lossesPerFold = []
-        lossPerEpoch = []
 
         kFold = KFold(n_splits=self.folds, shuffle=True)
 
