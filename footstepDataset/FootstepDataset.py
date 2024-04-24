@@ -27,6 +27,7 @@ class FootstepDataset(Dataset):
             self.cacher.cachePath = cachePath
 
         # Create an array and store the data as (feature, labelNumeric)
+        self.featureSize = 0
         dataArray = []
         labelArray = []
         self.labelStrings = []
@@ -53,6 +54,7 @@ class FootstepDataset(Dataset):
                 maxVal = np.max(dataArray)
                 dataArray /= maxVal
                 self.dataset = [[x, y] for x, y in zip(dataArray, labelArray)]
+                self.featureSize = dataArray.shape[1]
                 break
 
     def __getitem__(self, index):

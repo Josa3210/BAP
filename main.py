@@ -15,8 +15,8 @@ if __name__ == '__main__':
     filterExtr = FeatureExtractorTKEO()
     filterExtr.noiseProfile = path.joinpath(r"noiseProfile\noiseProfile2.wav")
     participants = ["sylvia", "tine", "patrick", "celeste", "simon"]
-    dataset = FootstepDataset(path, transform=filterExtr, labelFilter=participants, cachePath=utils.getDataRoot().joinpath(r"cache\TKEO"))
-    labels = dataset.labelArray
+    dataset = FootstepDataset(path, transform=filterExtr, labelFilter=participants, cachePath=utils.getDataRoot().joinpath(r"cache\TKEO400"))
+    labels = dataset.labelStrings
     batchSize = 4
     dataloader = DataLoader(dataset, batch_size=batchSize, shuffle=True)
     print(f"Amount of batches: {len(dataloader)}")
