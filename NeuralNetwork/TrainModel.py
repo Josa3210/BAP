@@ -1,3 +1,4 @@
+import numpy as np
 from matplotlib import pyplot as plt
 
 from NeuralNetwork.NeuralNetworks import NeuralNetworkTKEO
@@ -24,20 +25,19 @@ if __name__ == '__main__':
 
     batchSize = 32
     nTrainings = 10
-    
+
     trainingResults = []
     trainingAccuracy = []
     testResults = []
     testAccuracy = []
     lossPerFold = []
 
-    logger.info(f"Start training for {nTrainings} trainings")
+    logger.info(f"Start training for {nTrainings} trainings\n")
     for i in range(nTrainings):
-        logger.info('\n')
         logger.info("=" * 30)
         logger.info(f"Start training {i + 1}")
         logger.info("=" * 30)
-        trainingResults.append(-network.trainOnData(trainingData=trainingDataset, folds=5, epochs=400, lr=0.0003, dr=0.8, batchSize=batchSize, verbose=False))
+        trainingResults.append(-network.trainOnData(trainingData=trainingDataset, folds=5, epochs=30, lr=0.0003, dr=0.8, batchSize=batchSize, verbose=False))
         trainingAccuracy.append(sum(network.trainingResults["Accuracy"]) / len(network.trainingResults["Accuracy"]))
         network.printResults(fullReport=False)
         testResults.append(network.testOnData(testData=testDataset))
@@ -46,9 +46,10 @@ if __name__ == '__main__':
         testAccuracy.append(sum(network.testResults["Accuracy"]) / len(network.testResults["Accuracy"]))
     logger.info(f"Finished training")
 
+    lossPerFold = np.array(lossPerFold)
     for j in range(nTrainings):
-        for i in range(5):
-            plt.plot(lossPerFold[j][i], label=f"Fold {j + 1}{i + 1}")
+        meanLoss = lossPerFold[j].mean(axis=1)
+        plt.plot(meanLoss, label=f"Fold {j + 1}")
     plt.title("Average loss per epoch", fontsize=30)
     plt.xlabel("Epochs")
     plt.ylabel("Average loss")

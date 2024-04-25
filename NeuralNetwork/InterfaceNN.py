@@ -19,7 +19,7 @@ from customLogger import CustomLogger
 
 class InterfaceNN(nn.Module):
     @abstractmethod
-    def __init__(self, name: str):
+    def __init__(self, name: str, initMethod: nn.init = nn.init.xavier_normal_):
         super().__init__()
         self.logger = CustomLogger.getLogger(__name__)
 
@@ -32,6 +32,7 @@ class InterfaceNN(nn.Module):
         self.trainingData = None
         self.testData = None
 
+        self.initMethod = initMethod
         self.batchSize = 64
         self.learningRate = 1e-5
         self.dropoutRate = 0.5
@@ -115,10 +116,9 @@ class InterfaceNN(nn.Module):
     def getDevice():
         return device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    @staticmethod
-    def initWeights(m):
+    def initWeights(self, m):
         if isinstance(m, nn.Linear) or isinstance(m, nn.Conv1d):
-            torch.nn.init.xavier_uniform_(m.weight)
+            self.initMethod(m.weight)
             m.bias.data.fill_(0.01)
 
     @staticmethod
