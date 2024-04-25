@@ -17,18 +17,18 @@ from featureExtraction.FeatureCacher import FeatureCacher
 class FeatureExtractor(ABC):
     @abstractmethod
     def __init__(self, funcPath: str = "extractTKEOFeatures.m", filterPath: str = "spectralSubtraction.m", noiseProfile: list[float] = None):
-        # Get the directory where this file is locate and add the path to the function to it
+        # Get the directory where this file is locate and add the trainingPath to the function to it
         self.funcPath = utils.getFunctionPath().joinpath(funcPath)
         self.filterPath = utils.getFunctionPath().joinpath(filterPath)
 
         self.logger = CustomLogger.getLogger(__name__)
 
-        # Check if the path to the featureExtraction.m file exists
+        # Check if the trainingPath to the featureExtraction.m file exists
         if not os.path.isfile(self.funcPath):
             self.logger.error(f"{self.funcPath} has not been found! Please add this file or specify location in the constructor (funcPath=)")
             return
 
-        # Check if the path to the filter file exists
+        # Check if the trainingPath to the filter file exists
         if not os.path.isfile(self.filterPath):
             self.logger.error(f"{self.filterPath} has not been found! Please add this file or specify location in the constructor (filterPath=)")
             return

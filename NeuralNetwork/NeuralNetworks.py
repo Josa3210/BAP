@@ -119,9 +119,9 @@ if __name__ == '__main__':
     network = NeuralNetworkTKEO(len(participants), dataset.featureSize)
 
     # bounds = {"lr": (1e-4, 1e-2), "dr": (0.2, 0.8)}
-    # results = network.optimizeParams(bounds=bounds, trainingData=dataset)
+    # results = network.optimizeParams(bounds=bounds, trainingData=trainingDataset)
 
-    # network.trainOnData(trainingData=dataset, folds=5, epochs=50, batchSize=batchSize, verbose=True, lr=results.get("lr"), dr=results.get("dr"))
+    # network.trainOnData(trainingData=trainingDataset, folds=5, epochs=50, batchSize=batchSize, verbose=True, lr=results.get("lr"), dr=results.get("dr"))
     network.trainOnData(trainingData=dataset, folds=5, epochs=300, lr=0.0003, dr=0.8, batchSize=batchSize, verbose=True)
     network.printResults(fullReport=True)
     network.testOnData(testData=testDataset)

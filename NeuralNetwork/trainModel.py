@@ -9,22 +9,22 @@ from utils import getDataRoot
 if __name__ == '__main__':
     logger = CustomLogger.getLogger(__name__)
 
-    path = getDataRoot().joinpath("recordings")
-    filterExtr = FeatureExtractorTKEO()
-    filterExtr.noiseProfile = path.joinpath(r"noiseProfile\noiseProfile2.wav")
-    participants = ["sylvia", "tine", "patrick", "celeste", "simon"]
-    dataset = FootstepDataset(path, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEO441"))
+    trainingPath = getDataRoot().joinpath("recordings")
     testPath = getDataRoot().joinpath("testData")
+    noisePath = trainingPath.joinpath(r"noiseProfile\noiseProfile2.wav")
+
+    filterExtr = FeatureExtractorTKEO()
+    filterExtr.noiseProfile = noisePath
+
+    participants = ["sylvia", "tine", "patrick", "celeste", "simon"]
+    trainingDataset = FootstepDataset(trainingPath, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEO441"))
     testDataset = FootstepDataset(testPath, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEOtest441"))
-    labels = dataset.labelStrings
+
+    network = NeuralNetworkTKEO(len(participants), trainingDataset.featureSize)
+
     batchSize = 32
-    network = NeuralNetworkTKEO(len(participants), dataset.featureSize)
-
-    # bounds = {"lr": (1e-4, 1e-2), "dr": (0.2, 0.8)}
-    # results = network.optimizeParams(bounds=bounds, trainingData=dataset)
-    # network.trainOnData(trainingData=dataset, folds=5, epochs=50, batchSize=batchSize, verbose=True, lr=results.get("lr"), dr=results.get("dr"))
-
     nTrainings = 10
+    
     trainingResults = []
     trainingAccuracy = []
     testResults = []
@@ -37,7 +37,7 @@ if __name__ == '__main__':
         logger.info("=" * 30)
         logger.info(f"Start training {i + 1}")
         logger.info("=" * 30)
-        trainingResults.append(-network.trainOnData(trainingData=dataset, folds=5, epochs=30, lr=0.0003, dr=0.8, batchSize=batchSize, verbose=False))
+        trainingResults.append(-network.trainOnData(trainingData=trainingDataset, folds=5, epochs=400, lr=0.0003, dr=0.8, batchSize=batchSize, verbose=False))
         trainingAccuracy.append(sum(network.trainingResults["Accuracy"]) / len(network.trainingResults["Accuracy"]))
         network.printResults(fullReport=False)
         testResults.append(network.testOnData(testData=testDataset))

@@ -11,7 +11,7 @@ import time
 class Audiorecorder:
     def __init__(self, baseLink: str, sampleRate: int, channels: int):
         """
-       Initializes the Audiorecorder class. Sets the baseLink (the path where the audio files will be saved),
+       Initializes the Audiorecorder class. Sets the baseLink (the trainingPath where the audio files will be saved),
        the sample rate (the number of samples per second), and the number of channels.
        """
 
