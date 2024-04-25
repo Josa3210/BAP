@@ -48,8 +48,8 @@ if __name__ == '__main__':
 
     lossPerFold = np.array(lossPerFold)
     for j in range(nTrainings):
-        meanLoss = lossPerFold[j].mean(axis=1)
-        plt.plot(meanLoss, label=f"Fold {j + 1}")
+        meanLoss = lossPerFold[j].mean(axis=0)
+        plt.plot(meanLoss, label=f"Training {j + 1}")
     plt.title("Average loss per epoch", fontsize=30)
     plt.xlabel("Epochs")
     plt.ylabel("Average loss")
