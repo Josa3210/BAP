@@ -15,19 +15,19 @@ class NeuralNetworkTKEO(InterfaceNN):
     def __init__(self, nPersons: int, sFeatures: int):
         super().__init__("NeuralNetworkTKEO")
         # Params layer1
-        self.l1 = [10, 64, 1]
-
+        self.l1 = [5, 128, 1]
         # Params layer 2
-        self.l2 = [10, 64, 1]
-
+        self.l2 = [5, 128, 1]
         # Params layer 3
-        self.l3 = [10, 64, 1]
-
+        self.l3 = [5, 64, 1]
         # Params layer 4
-        self.l4 = [10, 64, 1]
-
+        self.l4 = [5, 64, 1]
         # Params layer 5
-        self.l5 = [10, 64, 1]
+        self.l5 = [5, 64, 1]
+        # Params layer 5
+        self.l6 = [5, 64, 1]
+        # Params layer 5
+        self.l7 = [5, 64, 1]
 
         # These layers are responsible for extracting features and fixing offsets
         self.fLayers = nn.Sequential(
@@ -43,16 +43,21 @@ class NeuralNetworkTKEO(InterfaceNN):
             nn.Conv1d(in_channels=self.l3[0], out_channels=self.l4[0], kernel_size=self.l4[1], stride=self.l4[2], padding=round(self.l4[1] / 2)),
             nn.ReLU(),
             nn.AvgPool1d(2, 2),
-            nn.Conv1d(in_channels=self.l1[0], out_channels=self.l5[0], kernel_size=self.l5[1], stride=self.l5[2], padding=round(self.l5[1] / 2)),
+            nn.Conv1d(in_channels=self.l4[0], out_channels=self.l5[0], kernel_size=self.l5[1], stride=self.l5[2], padding=round(self.l5[1] / 2)),
             nn.ReLU(),
-            nn.AvgPool1d(2, 2)
+            nn.AvgPool1d(2, 2),
+            nn.Conv1d(in_channels=self.l5[0], out_channels=self.l6[0], kernel_size=self.l6[1], stride=self.l6[2], padding=round(self.l6[1] / 2)),
+            nn.ReLU(),
+            nn.AvgPool1d(2, 2),
+            nn.Conv1d(in_channels=self.l6[0], out_channels=self.l7[0], kernel_size=self.l7[1], stride=self.l7[2], padding=round(self.l7[1] / 2)),
+            nn.ReLU(),
+            nn.AvgPool1d(2, 2),
         )
-        # These layers are responsible for classification after being passed through the fLayers
 
-        self.cInput = self.l5[0] * self.calcInputSize(sFeatures)
+        # These layers are responsible for classification after being passed through the fLayers
+        self.cInput = self.l7[0] * self.calcInputSize(sFeatures)
 
         self.cLayers = nn.Sequential(
-
             nn.Linear(self.cInput, 1024),
             nn.ReLU(),
             nn.Dropout(self.dropoutRate),
@@ -62,6 +67,7 @@ class NeuralNetworkTKEO(InterfaceNN):
             nn.Linear(128, nPersons),
             nn.Softmax(dim=1)
         )
+        self.apply(self.initWeightsZero)
 
     @staticmethod
     def calcSizeConv(inputSize, filterSize: int, stride: int = 1, padding: int = 0):
@@ -105,18 +111,18 @@ if __name__ == '__main__':
     filterExtr = FeatureExtractorTKEO()
     filterExtr.noiseProfile = path.joinpath(r"noiseProfile\noiseProfile2.wav")
     participants = ["sylvia", "tine", "patrick", "celeste", "simon"]
-    dataset = FootstepDataset(path, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEO400"))
+    dataset = FootstepDataset(path, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEO441"))
     testPath = getDataRoot().joinpath("testData")
-    testDataset = FootstepDataset(testPath, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEOtest400"))
+    testDataset = FootstepDataset(testPath, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEOtest441"))
     labels = dataset.labelStrings
     batchSize = 32
     network = NeuralNetworkTKEO(len(participants), dataset.featureSize)
 
-    # bounds = {"lr": (1e-4, 1), "dr": (0.2, 0.8)}
+    # bounds = {"lr": (1e-4, 1e-2), "dr": (0.2, 0.8)}
     # results = network.optimizeParams(bounds=bounds, trainingData=dataset)
 
-    # network.trainOnData(trainingData=dataset, folds=5, epochs=35, batchSize=batchSize, verbose=True, lr=results.get("lr"), dr=results.get("dr"))
-    network.trainOnData(trainingData=dataset, folds=5, epochs=50, lr=0.001, dr=0.6, batchSize=batchSize, verbose=True)
+    # network.trainOnData(trainingData=dataset, folds=5, epochs=50, batchSize=batchSize, verbose=True, lr=results.get("lr"), dr=results.get("dr"))
+    network.trainOnData(trainingData=dataset, folds=5, epochs=300, lr=0.0003, dr=0.8, batchSize=batchSize, verbose=True)
     network.printResults(fullReport=True)
     network.testOnData(testData=testDataset)
     network.printResults(testResult=True)

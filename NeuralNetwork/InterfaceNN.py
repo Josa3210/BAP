@@ -5,11 +5,12 @@ from abc import abstractmethod
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
 from bayes_opt import BayesianOptimization, UtilityFunction
 from sklearn import metrics
 from sklearn.model_selection import KFold
-from torch import nn, device, Tensor
+from torch import nn, device, Tensor, linspace
 from torch.utils.data import Dataset, SubsetRandomSampler, DataLoader
 from datetime import date
 import utils
@@ -126,7 +127,7 @@ class InterfaceNN(nn.Module):
             plt.plot(xEpochs, self.lossesPerFold[i], label=f"Fold {i + 1}")
         plt.title("Average loss per epoch", fontsize=30)
         plt.xlabel("Epochs")
-        plt.xticks([i + 1 for i in xEpochs])
+        # plt.xticks(linspace(1, len(xEpochs), 20))
         plt.ylabel("Average loss")
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
         plt.show()
@@ -180,11 +181,27 @@ class InterfaceNN(nn.Module):
             self.testResults["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
             self.testResults["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
 
+    def printWeights(self):
+        self.logger.info("PRINTING WEIGHTS:")
+        self.logger.info("=" * 30)
+        self.logger.info('\n')
+        for layer in self.children():
+            for subLayers in layer.children():
+                if isinstance(subLayers, nn.Conv1d):
+                    self.logger.info(f"Weights of layer {subLayers}")
+                    self.logger.info(subLayers.weight)
+
     @staticmethod
     def initWeights(m):
         if isinstance(m, nn.Linear) or isinstance(m, nn.Conv1d):
-            torch.nn.init.xavier_normal_(m.weight)
+            torch.nn.init.xavier_uniform_(m.weight)
             m.bias.data.fill_(0.01)
+
+    @staticmethod
+    def initWeightsZero(m):
+        if isinstance(m, nn.Linear) or isinstance(m, nn.Conv1d):
+            m.weight.data.fill_(0.)
+            m.bias.data.fill_(0.)
 
     def trainOnData(self,
                     trainingData: Dataset = None,
