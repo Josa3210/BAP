@@ -115,82 +115,6 @@ class InterfaceNN(nn.Module):
     def getDevice():
         return device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    def clearResults(self, clearTestResults: bool = False):
-        if clearTestResults:
-            self.testResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
-        else:
-            self.trainingResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
-
-    def printLoss(self):
-        xEpochs = list(range(self.epochs))
-        for i in range(self.folds):
-            plt.plot(xEpochs, self.lossesPerFold[i], label=f"Fold {i + 1}")
-        plt.title("Average loss per epoch", fontsize=30)
-        plt.xlabel("Epochs")
-        # plt.xticks(linspace(1, len(xEpochs), 20))
-        plt.ylabel("Average loss")
-        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-        plt.show()
-
-    def testOnData(self,
-                   testData: Dataset,
-                   batchSize: int = None
-                   ):
-        # Initialize parameters
-        if testData is not None:
-            self.testData = testData
-        if batchSize is not None:
-            self.batchSize = batchSize
-
-        if self.testData is None:
-            self.logger.info("Define trainingdata using network.setTrainingData()")
-            return None
-
-        self.clearResults(clearTestResults=True)
-
-        testLoader = DataLoader(dataset=testData, shuffle=True)
-        lossFunction = nn.CrossEntropyLoss()
-
-        currentLoss = 0
-        confMatPred, confMatTarget = [], []
-
-        with torch.no_grad():
-            # Iterate over the test data and generate predictions
-            for i, batch in enumerate(testLoader):
-                # Get inputs
-                inputs, targets = batch
-
-                inputs = inputs.to(self.device)
-                targets = targets.to(self.device)
-
-                # Generate outputs
-                outputs = self(inputs)
-
-                # Set total and correct
-                _, predicted = torch.max(outputs.data, 1)
-
-                loss = lossFunction(outputs, targets)
-                currentLoss += loss.item()
-
-                confMatPred.extend(predicted.data.cpu().numpy())
-                confMatTarget.extend(targets.data.cpu().numpy())
-
-            # Calculate confusion matrix and metrics
-            self.testResults["Loss"].append(currentLoss)
-            self.testResults["Accuracy"].append(metrics.accuracy_score(confMatTarget, confMatPred) * 100)
-            self.testResults["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
-            self.testResults["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
-
-    def printWeights(self):
-        self.logger.info("PRINTING WEIGHTS:")
-        self.logger.info("=" * 30)
-        self.logger.info('\n')
-        for layer in self.children():
-            for subLayers in layer.children():
-                if isinstance(subLayers, nn.Conv1d):
-                    self.logger.info(f"Weights of layer {subLayers}")
-                    self.logger.info(subLayers.weight)
-
     @staticmethod
     def initWeights(m):
         if isinstance(m, nn.Linear) or isinstance(m, nn.Conv1d):
@@ -202,6 +126,12 @@ class InterfaceNN(nn.Module):
         if isinstance(m, nn.Linear) or isinstance(m, nn.Conv1d):
             m.weight.data.fill_(0.)
             m.bias.data.fill_(0.)
+
+    def clearResults(self, clearTestResults: bool = False):
+        if clearTestResults:
+            self.testResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
+        else:
+            self.trainingResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
 
     def trainOnData(self,
                     trainingData: Dataset = None,
@@ -345,72 +275,55 @@ class InterfaceNN(nn.Module):
             self.lossesPerFold.append(lossPerEpoch)
         return - sum(self.trainingResults["Loss"]) / len(self.trainingResults["Loss"])
 
-    def saveModel(self, path: Path = None, name: str = None, idNr: int = None):
-        fileName = self._name
-        if name is not None:
-            fileName += "-" + name
-        if idNr is not None:
-            fileName += "-" + str(idNr)
-        if path is None:
-            path = self.savePath
+    def testOnData(self,
+                   testData: Dataset,
+                   batchSize: int = None
+                   ):
+        # Initialize parameters
+        if testData is not None:
+            self.testData = testData
+        if batchSize is not None:
+            self.batchSize = batchSize
 
-        if not path.exists():
-            os.makedirs(path)
+        if self.testData is None:
+            self.logger.info("Define trainingdata using network.setTrainingData()")
+            return None
 
-        torch.save(self.state_dict(), path.joinpath(fileName + ".pth"))
+        self.clearResults(clearTestResults=True)
 
-    def loadModel(self, path: Path):
-        self.logger.info(f"Trying to download model from {path}")
+        testLoader = DataLoader(dataset=testData, shuffle=True)
+        lossFunction = nn.CrossEntropyLoss()
 
-        if not path.exists():
-            self.logger.warning("Path does not exist")
-            return
+        currentLoss = 0
+        confMatPred, confMatTarget = [], []
 
-        self.load_state_dict(torch.load(path, map_location=self.device))
-        self.logger.info("Successfully downloaded model")
-        # Print model's state_dict
-        print("Model's state_dict:")
-        for param_tensor in self.state_dict():
-            print(param_tensor, "\t", self.state_dict()[param_tensor].size())
+        with torch.no_grad():
+            # Iterate over the test data and generate predictions
+            for i, batch in enumerate(testLoader):
+                # Get inputs
+                inputs, targets = batch
 
-    def printResults(self, testResult: bool = False, fullReport: bool = False):
-        if testResult:
-            results = self.testResults
-            typeResults = "Test"
-        else:
-            typeResults = "Training"
-            results = self.trainingResults
+                inputs = inputs.to(self.device)
+                targets = targets.to(self.device)
 
-        keys: list[str] = list(results.keys())
-        folds = len(results[keys[0]])
+                # Generate outputs
+                outputs = self(inputs)
 
-        if folds == 0:
-            self.logger.warning("No folds found. Exiting")
-            return
+                # Set total and correct
+                _, predicted = torch.max(outputs.data, 1)
 
-        self.logger.info(f"\nResults of {typeResults}:")
-        self.logger.info("=" * 30)
+                loss = lossFunction(outputs, targets)
+                currentLoss += loss.item()
 
-        if fullReport:
-            for i in range(folds):
-                self.logger.info(f"For fold {i:d}:")
-                self.logger.info("-" * 30)
-                self.logger.info(f"Accuracy: {results[keys[1]][i]:.2f}%")
-                self.logger.info(f"Precision: {results[keys[2]][i]:.2f}%")
-                self.logger.info(f"Recall: {results[keys[3]][i]:.2f}%")
-                self.logger.info("-" * 30)
+                confMatPred.extend(predicted.data.cpu().numpy())
+                confMatTarget.extend(targets.data.cpu().numpy())
 
-        self.logger.info("Average:")
-        self.logger.info("-" * 30)
-
-        avgAccuracy = sum(results[keys[1]]) / folds
-        avgPrecision = sum(results[keys[2]]) / folds
-        avgRecall = sum(results[keys[3]]) / folds
-
-        self.logger.info(f"Accuracy: {avgAccuracy:.2f}%")
-        self.logger.info(f"Precision: {avgPrecision:.2f}%")
-        self.logger.info(f"Recall: {avgRecall:.2f}%")
-        self.logger.info("=" * 30)
+            # Calculate confusion matrix and metrics
+            self.testResults["Loss"].append(currentLoss / len(testLoader))
+            self.testResults["Accuracy"].append(metrics.accuracy_score(confMatTarget, confMatPred) * 100)
+            self.testResults["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
+            self.testResults["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
+        return sum(self.testResults["Loss"]) / len(self.testResults["Loss"])
 
     def optimizeParams(self,
                        bounds: dict[str, tuple[float, float]],
@@ -460,3 +373,90 @@ class InterfaceNN(nn.Module):
             results.update({key: val})
 
         return results
+
+    def saveModel(self, path: Path = None, name: str = None, idNr: int = None):
+        fileName = self._name
+        if name is not None:
+            fileName += "-" + name
+        if idNr is not None:
+            fileName += "-" + str(idNr)
+        if path is None:
+            path = self.savePath
+
+        if not path.exists():
+            os.makedirs(path)
+
+        torch.save(self.state_dict(), path.joinpath(fileName + ".pth"))
+
+    def loadModel(self, path: Path):
+        self.logger.info(f"Trying to download model from {path}")
+
+        if not path.exists():
+            self.logger.warning("Path does not exist")
+            return
+
+        self.load_state_dict(torch.load(path, map_location=self.device))
+        self.logger.info("Successfully downloaded model")
+        # Print model's state_dict
+        print("Model's state_dict:")
+        for param_tensor in self.state_dict():
+            print(param_tensor, "\t", self.state_dict()[param_tensor].size())
+
+    def printWeights(self):
+        self.logger.info("PRINTING WEIGHTS:")
+        self.logger.info("=" * 30)
+        self.logger.info('\n')
+        for layer in self.children():
+            for subLayers in layer.children():
+                if isinstance(subLayers, nn.Conv1d):
+                    self.logger.info(f"Weights of layer {subLayers}")
+                    self.logger.info(subLayers.weight)
+
+    def printLoss(self):
+        xEpochs = list(range(self.epochs))
+        for i in range(self.folds):
+            plt.plot(xEpochs, self.lossesPerFold[i], label=f"Fold {i + 1}")
+        plt.title("Average loss per epoch", fontsize=30)
+        plt.xlabel("Epochs")
+        plt.ylabel("Average loss")
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+        plt.show()
+
+    def printResults(self, testResult: bool = False, fullReport: bool = False):
+        if testResult:
+            results = self.testResults
+            typeResults = "Test"
+        else:
+            typeResults = "Training"
+            results = self.trainingResults
+
+        keys: list[str] = list(results.keys())
+        folds = len(results[keys[0]])
+
+        if folds == 0:
+            self.logger.warning("No folds found. Exiting")
+            return
+
+        self.logger.info(f"\nResults of {typeResults}:")
+        self.logger.info("=" * 30)
+
+        if fullReport:
+            for i in range(folds):
+                self.logger.info(f"For fold {i:d}:")
+                self.logger.info("-" * 30)
+                self.logger.info(f"Accuracy: {results[keys[1]][i]:.2f}%")
+                self.logger.info(f"Precision: {results[keys[2]][i]:.2f}%")
+                self.logger.info(f"Recall: {results[keys[3]][i]:.2f}%")
+                self.logger.info("-" * 30)
+
+        self.logger.info("Average:")
+        self.logger.info("-" * 30)
+
+        avgAccuracy = sum(results[keys[1]]) / folds
+        avgPrecision = sum(results[keys[2]]) / folds
+        avgRecall = sum(results[keys[3]]) / folds
+
+        self.logger.info(f"Accuracy: {avgAccuracy:.2f}%")
+        self.logger.info(f"Precision: {avgPrecision:.2f}%")
+        self.logger.info(f"Recall: {avgRecall:.2f}%")
+        self.logger.info("=" * 30)

@@ -1,0 +1,65 @@
+from matplotlib import pyplot as plt
+
+from NeuralNetwork.NeuralNetworks import NeuralNetworkTKEO
+from customLogger import CustomLogger
+from featureExtraction.FeatureExtractor import FeatureExtractorTKEO
+from footstepDataset.FootstepDataset import FootstepDataset
+from utils import getDataRoot
+
+if __name__ == '__main__':
+    logger = CustomLogger.getLogger(__name__)
+
+    path = getDataRoot().joinpath("recordings")
+    filterExtr = FeatureExtractorTKEO()
+    filterExtr.noiseProfile = path.joinpath(r"noiseProfile\noiseProfile2.wav")
+    participants = ["sylvia", "tine", "patrick", "celeste", "simon"]
+    dataset = FootstepDataset(path, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEO441"))
+    testPath = getDataRoot().joinpath("testData")
+    testDataset = FootstepDataset(testPath, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEOtest441"))
+    labels = dataset.labelStrings
+    batchSize = 32
+    network = NeuralNetworkTKEO(len(participants), dataset.featureSize)
+
+    # bounds = {"lr": (1e-4, 1e-2), "dr": (0.2, 0.8)}
+    # results = network.optimizeParams(bounds=bounds, trainingData=dataset)
+    # network.trainOnData(trainingData=dataset, folds=5, epochs=50, batchSize=batchSize, verbose=True, lr=results.get("lr"), dr=results.get("dr"))
+
+    nTrainings = 10
+    trainingResults = []
+    trainingAccuracy = []
+    testResults = []
+    testAccuracy = []
+    lossPerFold = []
+
+    logger.info(f"Start training for {nTrainings} trainings")
+    for i in range(nTrainings):
+        logger.info('\n')
+        logger.info("=" * 30)
+        logger.info(f"Start training {i + 1}")
+        logger.info("=" * 30)
+        trainingResults.append(-network.trainOnData(trainingData=dataset, folds=5, epochs=30, lr=0.0003, dr=0.8, batchSize=batchSize, verbose=False))
+        trainingAccuracy.append(sum(network.trainingResults["Accuracy"]) / len(network.trainingResults["Accuracy"]))
+        network.printResults(fullReport=False)
+        testResults.append(network.testOnData(testData=testDataset))
+        network.printResults(testResult=True)
+        lossPerFold.append(network.lossesPerFold)
+        testAccuracy.append(sum(network.testResults["Accuracy"]) / len(network.testResults["Accuracy"]))
+    logger.info(f"Finished training")
+
+    for j in range(nTrainings):
+        for i in range(5):
+            plt.plot(lossPerFold[j][i], label=f"Fold {j + 1}{i + 1}")
+    plt.title("Average loss per epoch", fontsize=30)
+    plt.xlabel("Epochs")
+    plt.ylabel("Average loss")
+    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    plt.show()
+
+    logger.info(f"\nRESULT OF {nTrainings} TRAININGS")
+    logger.info("=" * 30)
+    logger.info(f"Average training results: {sum(trainingResults) / len(trainingResults):.5f}")
+    logger.info(f"Average training accuracy: {sum(trainingAccuracy) / len(trainingAccuracy):.2f}%")
+    logger.info("-" * 30)
+    logger.info(f"Average test results: {sum(testResults) / len(testResults):.5f}")
+    logger.info(f"Average test accuracy: {sum(testAccuracy) / len(testAccuracy):.2f}%")
+    logger.info("=" * 30)
