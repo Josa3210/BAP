@@ -5,16 +5,14 @@ from abc import abstractmethod
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import numpy as np
 import torch
-from bayes_opt import BayesianOptimization, UtilityFunction
+from bayes_opt import BayesianOptimization
 from sklearn import metrics
 from sklearn.model_selection import KFold
-from torch import nn, device, Tensor, linspace
+from torch import nn, device, Tensor
 from torch.utils.data import Dataset, SubsetRandomSampler, DataLoader
-from datetime import date
 import utils
-from customLogger import CustomLogger
+from CustomLogger import CustomLogger
 
 
 class InterfaceNN(nn.Module):
@@ -25,9 +23,9 @@ class InterfaceNN(nn.Module):
 
         self.device = self.getDevice()
 
-        self.trainingResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
+        self.validationResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
         self.testResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
-        self.lossesPerFold = []
+        self.trainingLossesPerFold = []
 
         self.trainingData = None
         self.testData = None
@@ -127,11 +125,19 @@ class InterfaceNN(nn.Module):
             m.weight.data.fill_(0.)
             m.bias.data.fill_(0.)
 
+    @staticmethod
+    def calcSizeConv(inputSize, filterSize: int, stride: int = 1, padding: int = 0):
+        return math.floor((inputSize + 2 * padding - filterSize) / stride) + 1
+
+    @staticmethod
+    def calcSizePool(inputSize, filterSize: int, stride: int, dilation: int = 1, padding: int = 0):
+        return math.floor(((inputSize + 2 * padding) - (dilation * (filterSize - 1)) - 1) / stride) + 1
+
     def clearResults(self, clearTestResults: bool = False):
         if clearTestResults:
             self.testResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
         else:
-            self.trainingResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
+            self.validationResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
 
     def trainOnData(self,
                     trainingData: Dataset = None,
@@ -169,7 +175,8 @@ class InterfaceNN(nn.Module):
             return None
 
         lossFunction = nn.CrossEntropyLoss()
-        self.lossesPerFold = []
+        self.trainingLossesPerFold = []
+        self.validationLossesPerFold = []
 
         kFold = KFold(n_splits=self.folds, shuffle=True)
 
@@ -197,7 +204,7 @@ class InterfaceNN(nn.Module):
             self.to(self.device)
             optimizer: torch.optim.Optimizer = torch.optim.Adam(self.parameters(), lr=self.learningRate)
 
-            lossPerEpoch = []
+            trainingLossPerEpoch = []
 
             # Start training epochs
             for epoch in range(self.epochs):
@@ -236,7 +243,7 @@ class InterfaceNN(nn.Module):
                     if (i + 1) % 2 == 0:
                         self.logger.debug(f"{i:4d} / {len(trainLoader)} batches: average loss = {currentLoss / (i + 1)}")
 
-                lossPerEpoch.append(currentLoss / len(trainLoader))
+                trainingLossPerEpoch.append(currentLoss / len(trainLoader))
 
             # Evaluation for this fold
             self.logger.debug('-' * 30)
@@ -267,13 +274,13 @@ class InterfaceNN(nn.Module):
                     confMatTarget.extend(targets.data.cpu().numpy())
 
                 # Calculate confusion matrix and metrics
-                self.trainingResults["Loss"].append(currentLoss / len(validationLoader))
-                self.trainingResults["Accuracy"].append(metrics.accuracy_score(confMatTarget, confMatPred) * 100)
-                self.trainingResults["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
-                self.trainingResults["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
+                self.validationResults["Loss"].append(currentLoss / len(validationLoader))
+                self.validationResults["Accuracy"].append(metrics.accuracy_score(confMatTarget, confMatPred) * 100)
+                self.validationResults["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
+                self.validationResults["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
 
-            self.lossesPerFold.append(lossPerEpoch)
-        return - sum(self.trainingResults["Loss"]) / len(self.trainingResults["Loss"])
+            self.trainingLossesPerFold.append(trainingLossPerEpoch)
+        return - sum(self.validationResults["Loss"]) / len(self.validationResults["Loss"])
 
     def testOnData(self,
                    testData: Dataset,
@@ -428,7 +435,7 @@ class InterfaceNN(nn.Module):
             typeResults = "Test"
         else:
             typeResults = "Training"
-            results = self.trainingResults
+            results = self.validationResults
 
         keys: list[str] = list(results.keys())
         folds = len(results[keys[0]])

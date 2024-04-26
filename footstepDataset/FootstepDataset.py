@@ -9,7 +9,7 @@ from scipy.io import wavfile
 from torch.utils.data import Dataset, DataLoader
 
 import utils
-from customLogger import CustomLogger
+from CustomLogger import CustomLogger
 from featureExtraction.FeatureCacher import FeatureCacher
 from featureExtraction.FeatureExtractor import FeatureExtractor, Filter, FeatureExtractorTKEO
 

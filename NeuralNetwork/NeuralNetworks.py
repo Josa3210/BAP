@@ -1,8 +1,5 @@
-import math
-
 import torch
 from torch import Tensor, nn
-from torch.utils.data import Dataset
 
 from utils import getDataRoot
 from NeuralNetwork.InterfaceNN import InterfaceNN
@@ -69,14 +66,6 @@ class NeuralNetworkTKEO(InterfaceNN):
         )
         self.apply(self.initWeightsZero)
 
-    @staticmethod
-    def calcSizeConv(inputSize, filterSize: int, stride: int = 1, padding: int = 0):
-        return math.floor((inputSize + 2 * padding - filterSize) / stride) + 1
-
-    @staticmethod
-    def calcSizePool(inputSize, filterSize: int, stride: int, dilation: int = 1, padding: int = 0):
-        return math.floor(((inputSize + 2 * padding) - (dilation * (filterSize - 1)) - 1) / stride) + 1
-
     def calcInputSize(self, nInput):
         inputSize = nInput
         for layers in self.children():
@@ -108,23 +97,23 @@ class NeuralNetworkTKEO(InterfaceNN):
 
 class NeuralNetworkSTFT(InterfaceNN):
 
-    def __init__(self, nPersons: int, sFeatures: tuple[int, int], initMethod: nn.init = nn.init.xavier_normal_):
+    def __init__(self, nPersons: int, sFeatures: list[int, int], initMethod: nn.init = nn.init.xavier_normal_):
         super().__init__("NeuralNetworkSTFT", initMethod)
 
         # Params layer1
-        self.l1 = [5, 128, 1]
+        self.l1 = [10, 128, 1]
         # Params layer 2
-        self.l2 = [5, 128, 1]
+        self.l2 = [10, 128, 1]
         # Params layer 3
-        self.l3 = [5, 64, 1]
+        self.l3 = [10, 64, 1]
         # Params layer 4
-        self.l4 = [5, 64, 1]
+        self.l4 = [10, 64, 1]
         # Params layer 5
-        self.l5 = [5, 64, 1]
+        self.l5 = [10, 64, 1]
         # Params layer 5
-        self.l6 = [5, 64, 1]
+        self.l6 = [10, 64, 1]
         # Params layer 5
-        self.l7 = [5, 64, 1]
+        self.l7 = [10, 64, 1]
 
         # These layers are responsible for extracting features and fixing offsets
         self.fLayers = nn.Sequential(
@@ -166,19 +155,29 @@ class NeuralNetworkSTFT(InterfaceNN):
         )
         self.apply(self.initWeightsZero)
 
-    def calcInputSize(self, nInput):
+    def calcInputSize(self, nInput: list[int, int]):
         inputSize = nInput
         for layers in self.children():
             if isinstance(layers, nn.Sequential):
                 for subLayer in layers.children():
                     if isinstance(subLayer, nn.Conv1d):
-                        inputSize = self.calcSizeConv(inputSize, filterSize=subLayer.kernel_size[0], stride=subLayer.stride[0], padding=int(subLayer.padding[0]))
+                        inputSize[0] = self.calcSizeConv(inputSize[0], filterSize=subLayer.kernel_size[0], stride=subLayer.stride[0], padding=int(subLayer.padding[0]))
+                        inputSize[1] = self.calcSizeConv(inputSize[1], filterSize=subLayer.kernel_size[0], stride=subLayer.stride[0], padding=int(subLayer.padding[0]))
                     if isinstance(subLayer, nn.AvgPool1d):
-                        inputSize = self.calcSizePool(inputSize, filterSize=subLayer.kernel_size[0], stride=subLayer.stride[0], padding=int(subLayer.padding[0]))
-        return inputSize
+                        inputSize[0] = self.calcSizePool(inputSize[0], filterSize=subLayer.kernel_size[0], stride=subLayer.stride[0], padding=int(subLayer.padding[0]))
+                        inputSize[1] = self.calcSizePool(inputSize[1], filterSize=subLayer.kernel_size[0], stride=subLayer.stride[0], padding=int(subLayer.padding[0]))
+        return inputSize[0] * inputSize[1]
 
     def forward(self, x: Tensor):
-        pass
+        # Add a dimension in front of feature --> "1 channel"
+        x = x.unsqueeze(1)
+        # Run through feature layers
+        x = self.fLayers.forward(x)
+        # Flatten en discard the different channels
+        x = torch.flatten(x, start_dim=1)
+        # Run through classification layers
+        x = self.cLayers.forward(x)
+        return x
 
 
 if __name__ == '__main__':
@@ -189,7 +188,6 @@ if __name__ == '__main__':
     dataset = FootstepDataset(path, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEO441"))
     testPath = getDataRoot().joinpath("testData")
     testDataset = FootstepDataset(testPath, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEOtest441"))
-    labels = dataset.labelStrings
     batchSize = 32
     network = NeuralNetworkTKEO(len(participants), dataset.featureSize)
 
