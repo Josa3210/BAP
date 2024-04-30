@@ -1,6 +1,7 @@
 import logging
 import math
 import os
+import time
 from abc import abstractmethod
 from pathlib import Path
 
@@ -10,7 +11,7 @@ from bayes_opt import BayesianOptimization
 from sklearn import metrics
 from sklearn.model_selection import KFold
 from torch import nn, device, Tensor
-from torch.utils.data import Dataset, SubsetRandomSampler, DataLoader
+from torch.utils.data import Dataset, SubsetRandomSampler, DataLoader, random_split
 import utils
 from CustomLogger import CustomLogger
 
@@ -155,7 +156,7 @@ class InterfaceNN(nn.Module):
         if folds is not None:
             self.folds = folds
         if epochs is not None:
-            self.epochs = epochs
+            self.epochs = round(epochs)
         if batchSize is not None:
             self.batchSize = batchSize
         if lr is not None:
@@ -178,27 +179,41 @@ class InterfaceNN(nn.Module):
         lossFunction = nn.CrossEntropyLoss()
         self.trainingLossesPerFold = []
 
-        kFold = KFold(n_splits=self.folds, shuffle=True)
+        if self.folds > 1:
+            kFold = KFold(n_splits=self.folds, shuffle=True)
 
-        for fold, (train_ids, validation_ids) in enumerate(kFold.split(self.trainingData)):
+        for fold in range(self.folds):
             # Reset weights
             self.apply(self.initWeights)
+
+            if self.folds > 1:
+                train_ids, validation_ids = next(kFold.split(self.trainingData))
+                # Sample elements randomly from a given list of ids, no replacement.
+                trainSubSampler = SubsetRandomSampler(train_ids)
+                validationSubSampler = SubsetRandomSampler(validation_ids)
+
+                # Define data loaders for training and testing data in this fold
+                trainLoader = DataLoader(
+                    self.trainingData,
+                    batch_size=self.batchSize, sampler=trainSubSampler)
+                validationLoader = DataLoader(
+                    self.trainingData,
+                    batch_size=self.batchSize, sampler=validationSubSampler)
+            else:
+                trainSize = round(len(self.trainingData) * 0.8)
+                validationSize = len(self.trainingData) - trainSize
+                trainDataset, validationDataset = random_split(self.trainingData, (trainSize, validationSize))
+                # Define data loaders for training and testing data in this fold
+                trainLoader = DataLoader(
+                    self.trainingData,
+                    batch_size=self.batchSize)
+                validationLoader = DataLoader(
+                    self.trainingData,
+                    batch_size=self.batchSize)
 
             # Print
             self.logger.debug(f'\nFOLD {fold}')
             self.logger.debug('=' * 30)
-
-            # Sample elements randomly from a given list of ids, no replacement.
-            trainSubSampler = SubsetRandomSampler(train_ids)
-            validationSubSampler = SubsetRandomSampler(validation_ids)
-
-            # Define data loaders for training and testing data in this fold
-            trainLoader = DataLoader(
-                self.trainingData,
-                batch_size=self.batchSize, sampler=trainSubSampler)
-            validationLoader = DataLoader(
-                self.trainingData,
-                batch_size=self.batchSize, sampler=validationSubSampler)
 
             # Get the network to the right device
             self.to(self.device)
@@ -273,8 +288,9 @@ class InterfaceNN(nn.Module):
                     confMatPred.extend(predicted.data.cpu().numpy())
                     confMatTarget.extend(targets.data.cpu().numpy())
 
+                averageValidationLoss = currentLoss / len(validationLoader)
                 # Calculate confusion matrix and metrics
-                self.validationResults["Loss"].append(currentLoss / len(validationLoader))
+                self.validationResults["Loss"].append(averageValidationLoss)
                 self.validationResults["Accuracy"].append(metrics.accuracy_score(confMatTarget, confMatPred) * 100)
                 self.validationResults["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
                 self.validationResults["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
@@ -346,6 +362,7 @@ class InterfaceNN(nn.Module):
         for key in results.keys():
             params += " " + key + ","
         self.logger.info(f"Starting optimization of parameters: {params[0:-1]}")
+        time.sleep(1)
 
         # Initialize parameters
         if trainingData is not None:
@@ -369,6 +386,8 @@ class InterfaceNN(nn.Module):
             init_points=init_points,  # init_points: How many steps of random exploration you want to perform. Random exploration can help by diversifying the exploration space.
             n_iter=n_iter  # n_iter: How many steps of bayesian optimization you want to perform. The more steps the more likely to find a good maximum you are.
         )
+
+        time.sleep(1)
 
         self.logger.info("Finished optimizing")
         optimizedKeys = optimizer.max["params"].keys()

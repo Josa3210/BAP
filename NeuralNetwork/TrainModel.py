@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from torch import nn
 
-from NeuralNetwork.NeuralNetworks import NeuralNetworkTKEO
+from NeuralNetwork.NeuralNetworks import NeuralNetworkTKEO, NeuralNetworkTKEO2
 from CustomLogger import CustomLogger
 from Timer import Timer
 from featureExtraction.FeatureExtractor import FeatureExtractorTKEO
@@ -20,11 +20,11 @@ if __name__ == '__main__':
     filterExtr = FeatureExtractorTKEO()
     filterExtr.noiseProfile = noisePath
 
-    participants = ["sylvia", "tine", "patrick", "celeste", "simon"]
+    participants = ["sylvia", "tine", "patrick", "celeste", "simon", "walter", "ann", "jan", "lieve"]
     trainingDataset = FootstepDataset(trainingPath, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEO441"))
     testDataset = FootstepDataset(testPath, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEOtest441"))
 
-    network = NeuralNetworkTKEO(len(participants), trainingDataset.featureSize, nn.init.kaiming_uniform_)
+    network = NeuralNetworkTKEO2(len(participants), trainingDataset.featureSize, nn.init.kaiming_uniform_)
 
     batchSize = 32
     nTrainings = 10
@@ -35,13 +35,19 @@ if __name__ == '__main__':
     testAccuracy = []
     lossPerFold = []
 
+    network.learningRate = 0.00045
+    network.dropoutRate = 0.75
+    network.batchSize = batchSize
+    network.folds = 1
+    network.epochs = 350
+
     logger.info(f"Start training for {nTrainings} trainings\n")
     timer.start()
     for i in range(nTrainings):
         logger.info("=" * 30)
         logger.info(f"Start training {i + 1}")
         logger.info("=" * 30)
-        trainingResults.append(-network.trainOnData(trainingData=trainingDataset, folds=5, epochs=450, lr=0.0003, dr=0.8, batchSize=batchSize, verbose=False))
+        trainingResults.append(-network.trainOnData(trainingData=trainingDataset, verbose=False))
         trainingAccuracy.append(sum(network.validationResults["Accuracy"]) / len(network.validationResults["Accuracy"]))
         network.printResults(fullReport=False)
         testResults.append(network.testOnData(testData=testDataset))
