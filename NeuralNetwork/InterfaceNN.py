@@ -20,6 +20,7 @@ class InterfaceNN(nn.Module):
     def __init__(self, name: str, initMethod: nn.init = nn.init.xavier_normal_):
         super().__init__()
         self.logger = CustomLogger.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG)
 
         self.device = self.getDevice()
 
@@ -176,7 +177,6 @@ class InterfaceNN(nn.Module):
 
         lossFunction = nn.CrossEntropyLoss()
         self.trainingLossesPerFold = []
-        self.validationLossesPerFold = []
 
         kFold = KFold(n_splits=self.folds, shuffle=True)
 
@@ -422,7 +422,7 @@ class InterfaceNN(nn.Module):
     def printLoss(self):
         xEpochs = list(range(self.epochs))
         for i in range(self.folds):
-            plt.plot(xEpochs, self.lossesPerFold[i], label=f"Fold {i + 1}")
+            plt.plot(xEpochs, self.trainingLossesPerFold[i], label=f"Fold {i + 1}")
         plt.title("Average loss per epoch", fontsize=30)
         plt.xlabel("Epochs")
         plt.ylabel("Average loss")
@@ -451,9 +451,9 @@ class InterfaceNN(nn.Module):
             for i in range(folds):
                 self.logger.info(f"For fold {i:d}:")
                 self.logger.info("-" * 30)
-                self.logger.info(f"Accuracy: {results[keys[1]][i]:.2f}%")
-                self.logger.info(f"Precision: {results[keys[2]][i]:.2f}%")
-                self.logger.info(f"Recall: {results[keys[3]][i]:.2f}%")
+                self.logger.info(f"Accuracy:\t{results[keys[1]][i]:.2f}%")
+                self.logger.info(f"Precision:\t{results[keys[2]][i]:.2f}%")
+                self.logger.info(f"Recall:\t\t{results[keys[3]][i]:.2f}%")
                 self.logger.info("-" * 30)
 
         self.logger.info("Average:")
@@ -463,7 +463,7 @@ class InterfaceNN(nn.Module):
         avgPrecision = sum(results[keys[2]]) / folds
         avgRecall = sum(results[keys[3]]) / folds
 
-        self.logger.info(f"Accuracy: {avgAccuracy:.2f}%")
-        self.logger.info(f"Precision: {avgPrecision:.2f}%")
-        self.logger.info(f"Recall: {avgRecall:.2f}%")
+        self.logger.info(f"Accuracy:\t{avgAccuracy:.2f}%")
+        self.logger.info(f"Precision:\t{avgPrecision:.2f}%")
+        self.logger.info(f"Recall:\t\t{avgRecall:.2f}%")
         self.logger.info("=" * 30)

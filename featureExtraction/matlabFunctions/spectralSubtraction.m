@@ -82,4 +82,3 @@ function [sFiltered, SNRDiff] = spectralSubtraction(signal, profile, fs, nFFT, n
 
     SNRDiff = SNRref - SNRfilt;
 end
-
