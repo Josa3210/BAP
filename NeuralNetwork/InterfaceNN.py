@@ -336,19 +336,13 @@ class InterfaceNN(nn.Module):
         # Initialize parameters
         if trainingData is not None:
             self.trainingData = trainingData
-        if folds is not None:
-            self.folds = folds
-        if epochs is not None:
-            self.epochs = epochs
-        if batchSize is not None:
-            self.batchSize = batchSize
 
         # Give the parameter space from which the optimizer can choose
         parameterBounds = bounds
 
         # Create the optimizer object
         optimizer = BayesianOptimization(
-            f=self.trainOnData,
+            f=self.funcToOptimize,
             pbounds=parameterBounds
         )
         optimizer.maximize(
@@ -368,6 +362,10 @@ class InterfaceNN(nn.Module):
             results.update({key: val})
 
         return results
+
+    def funcToOptimize(self, epochs, lr, dr):
+        result, confMat = self.trainOnData(folds=1, epochs=epochs, lr=lr, dr=dr)
+        return - (sum(result["Loss"]) / len(result["Loss"]))
 
     def saveModel(self, path: Path = None, name: str = None, idNr: int = None):
         fileName = self._name
