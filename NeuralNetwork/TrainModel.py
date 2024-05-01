@@ -1,7 +1,9 @@
 import logging
+import math
 
 import numpy as np
 from matplotlib import pyplot as plt
+from sklearn.metrics import ConfusionMatrixDisplay
 from torch import nn
 
 from NeuralNetwork.NeuralNetworks import NeuralNetworkTKEO, NeuralNetworkTKEO2
@@ -36,9 +38,9 @@ def printDict(dict, logger: logging.Logger):
         str = f"{key:<10}: "
         for value in dict.get(key):
             if key == "Loss":
-                str += f"{value:.4f<5} "
+                str += f"{value:<5.4f} "
             else:
-                str += f"{value:.2f<5}% "
+                str += f"{value:<5.2f}% "
         logger.info(str)
 
 
@@ -70,13 +72,16 @@ if __name__ == '__main__':
     batchSize = 32
     learningRate = 0.00045
     network.dropoutRate = 0.2
-    folds = 5
-    epochs = 100
+    folds = 1
+    epochs = 250
 
     # Initialise variables
     trainingResults = []
     trainingAccuracy = []
     lossPerFold = []
+
+    bestResult = 0
+    id = 1
 
     # Start training
     logger.info(f"Start training for {nTrainings} trainings\n")
@@ -93,8 +98,14 @@ if __name__ == '__main__':
         logger.info(f"Training {i + 1} results:")
         printDict(validationResults, logger)
         logger.info("=" * 30)
+
+        if max(validationResults["Accuracy"]) > bestResult:
+            network.saveModel(name="BestFromBatch", idNr=id)
+            bestResult = max(validationResults["Accuracy"])
+            bestConfMat = confMat
+
     timer.stop()
-    logger.info(f"Finished training in {timer.get_elapsed_time() // 60} minutes {timer.get_elapsed_time() % 60:.2f} seconds ")
+    logger.info(f"Finished training in {timer.get_elapsed_time() // 60} minutes {round(timer.get_elapsed_time() % 60)} seconds")
 
     lossPerFold = np.array(lossPerFold)
     fig, axs = plt.subplots(1, 2)
@@ -121,5 +132,8 @@ if __name__ == '__main__':
     logger.info(f"Minimum:\t{np.min(trainingAccuracy):.2f}%")
     logger.info(f"Variance:\t{np.std(trainingAccuracy):.2f}%")
     logger.info("-" * 30)
+
+    disp = ConfusionMatrixDisplay(confusion_matrix=bestConfMat, display_labels=trainingDataset.labelStrings)
+    disp.plot()
 
     plt.show()

@@ -261,6 +261,8 @@ class InterfaceNN(nn.Module):
             validationResults["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
             self.trainingLossesPerFold.append(trainingLossPerEpoch)
 
+        # Set itself to the best model from the fold
+        self.loadModel(self.savePath.joinpath(self._name + "-" + "BestResult.pth"))
         return validationResults, bestConfMat
 
     def testOnData(self,
@@ -389,9 +391,9 @@ class InterfaceNN(nn.Module):
         self.load_state_dict(torch.load(path, map_location=self.device))
         self.logger.info("Successfully downloaded model")
         # Print model's state_dict
-        print("Model's state_dict:")
-        for param_tensor in self.state_dict():
-            print(param_tensor, "\t", self.state_dict()[param_tensor].size())
+        # print("Model's state_dict:")
+        # for param_tensor in self.state_dict():
+        #    print(param_tensor, "\t", self.state_dict()[param_tensor].size())
 
     def printWeights(self):
         self.logger.info("PRINTING WEIGHTS:")
