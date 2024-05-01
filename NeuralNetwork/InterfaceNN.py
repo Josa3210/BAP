@@ -149,10 +149,14 @@ class InterfaceNN(nn.Module):
                 # Define data loaders for training and testing data in this fold
                 trainLoader = DataLoader(
                     self.trainingData,
-                    batch_size=batchSize, sampler=trainSubSampler)
+                    batch_size=batchSize,
+                    sampler=trainSubSampler,
+                    shuffle=True)
                 validationLoader = DataLoader(
                     self.trainingData,
-                    batch_size=batchSize, sampler=validationSubSampler)
+                    batch_size=batchSize,
+                    sampler=validationSubSampler,
+                    shuffle=True)
             else:
                 trainSize = round(len(self.trainingData) * 0.8)
                 validationSize = len(self.trainingData) - trainSize
@@ -160,10 +164,12 @@ class InterfaceNN(nn.Module):
                 # Define data loaders for training and testing data in this fold
                 trainLoader = DataLoader(
                     trainDataset,
-                    batch_size=batchSize)
+                    batch_size=batchSize,
+                    shuffle=True)
                 validationLoader = DataLoader(
                     validationDataset,
-                    batch_size=batchSize)
+                    batch_size=batchSize,
+                    shuffle=True)
 
             # Print
             self.logger.debug(f'\nFOLD {fold}')
@@ -261,25 +267,24 @@ class InterfaceNN(nn.Module):
 
     def testOnData(self,
                    testData: Dataset,
-                   batchSize: int = None
-                   ):
+                   batchSize: int = None):
+
         # Initialize parameters
         if testData is not None:
             self.testData = testData
-        if batchSize is not None:
-            self.batchSize = batchSize
 
+        # Check if there is data
         if self.testData is None:
             self.logger.info("Define trainingdata using network.setTrainingData()")
             return None
 
-        self.clearResults(clearTestResults=True)
+        # Create dataloader
+        testLoader = DataLoader(dataset=testData, batch_size=batchSize, shuffle=True)
 
-        testLoader = DataLoader(dataset=testData, shuffle=True)
-        lossFunction = nn.CrossEntropyLoss()
-
+        # Initialize variables
         currentLoss = 0
         confMatPred, confMatTarget = [], []
+        testResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
 
         with torch.no_grad():
             # Iterate over the test data and generate predictions
@@ -296,18 +301,21 @@ class InterfaceNN(nn.Module):
                 # Set total and correct
                 _, predicted = torch.max(outputs.data, 1)
 
-                loss = lossFunction(outputs, targets)
+                loss = self.lossFunction(outputs, targets)
                 currentLoss += loss.item()
 
                 confMatPred.extend(predicted.data.cpu().numpy())
                 confMatTarget.extend(targets.data.cpu().numpy())
 
+            avgTestLoss = currentLoss / len(testLoader)
+
             # Calculate confusion matrix and metrics
-            self.testResults["Loss"].append(currentLoss / len(testLoader))
-            self.testResults["Accuracy"].append(metrics.accuracy_score(confMatTarget, confMatPred) * 100)
-            self.testResults["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
-            self.testResults["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
-        return sum(self.testResults["Loss"]) / len(self.testResults["Loss"])
+            testResults["Loss"].append(avgTestLoss)
+            testResults["Accuracy"].append(metrics.accuracy_score(confMatTarget, confMatPred) * 100)
+            testResults["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
+            testResults["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
+            confMat = confusion_matrix(y_true=confMatTarget, y_pred=confMatPred)
+        return testResults, confMat
 
     def optimizeParams(self,
                        bounds: dict[str, tuple[float, float]],

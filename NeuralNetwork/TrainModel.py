@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 from matplotlib import pyplot as plt
 from torch import nn
@@ -29,12 +31,15 @@ Results:
 """
 
 
-def printDict(dict: dict[str, float], logger: CustomLogger):
+def printDict(dict, logger: logging.Logger):
     for key in dict.keys():
-        str = key + "\t\t:\t"
+        str = f"{key:<10}: "
         for value in dict.get(key):
-            str += f"{value:.2f} "
-        logger.info(str)
+            if key == "Loss":
+                str += f"{value:.4f}"
+            else:
+                str += f"{value:.2f}%"
+            logger.info(str)
 
 
 if __name__ == '__main__':
@@ -66,7 +71,7 @@ if __name__ == '__main__':
     learningRate = 0.00045
     network.dropoutRate = 0.2
     folds = 1
-    epochs = 350
+    epochs = 100
 
     # Initialise variables
     trainingResults = []
@@ -85,8 +90,7 @@ if __name__ == '__main__':
         lossPerFold.append(network.trainingLossesPerFold)
 
         logger.info("=" * 30)
-        logger.info(f"Training {i + 1} done")
-        logger.info(f"Results:")
+        logger.info(f"Training {i + 1} results:")
         printDict(validationResults, logger)
         logger.info("=" * 30)
     timer.stop()
