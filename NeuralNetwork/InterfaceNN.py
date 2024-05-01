@@ -150,13 +150,11 @@ class InterfaceNN(nn.Module):
                 trainLoader = DataLoader(
                     self.trainingData,
                     batch_size=batchSize,
-                    sampler=trainSubSampler,
-                    shuffle=True)
+                    sampler=trainSubSampler)
                 validationLoader = DataLoader(
                     self.trainingData,
                     batch_size=batchSize,
-                    sampler=validationSubSampler,
-                    shuffle=True)
+                    sampler=validationSubSampler)
             else:
                 trainSize = round(len(self.trainingData) * 0.8)
                 validationSize = len(self.trainingData) - trainSize

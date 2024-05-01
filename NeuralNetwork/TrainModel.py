@@ -36,10 +36,10 @@ def printDict(dict, logger: logging.Logger):
         str = f"{key:<10}: "
         for value in dict.get(key):
             if key == "Loss":
-                str += f"{value:.4f}"
+                str += f"{value:.4f<5} "
             else:
-                str += f"{value:.2f}%"
-            logger.info(str)
+                str += f"{value:.2f<5}% "
+        logger.info(str)
 
 
 if __name__ == '__main__':
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     batchSize = 32
     learningRate = 0.00045
     network.dropoutRate = 0.2
-    folds = 1
+    folds = 5
     epochs = 100
 
     # Initialise variables
@@ -85,8 +85,8 @@ if __name__ == '__main__':
     for i in range(nTrainings):
         validationResults, confMat = network.trainOnData(trainingData=trainingDataset, verbose=False, folds=folds, lr=learningRate, epochs=epochs, batchSize=batchSize)
 
-        trainingResults.append(*validationResults["Loss"])
-        trainingAccuracy.append(*validationResults["Accuracy"])
+        trainingResults.extend(validationResults["Loss"])
+        trainingAccuracy.extend(validationResults["Accuracy"])
         lossPerFold.append(network.trainingLossesPerFold)
 
         logger.info("=" * 30)
