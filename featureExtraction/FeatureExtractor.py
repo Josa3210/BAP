@@ -1,17 +1,12 @@
-import glob
-import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 
 import utils
-import numpy as np
 from scipy.io import wavfile
 import os.path
 import matlab.engine
-import torch
 
-from customLogger import CustomLogger
-from featureExtraction.FeatureCacher import FeatureCacher
+from CustomLogger import CustomLogger
 
 
 class FeatureExtractor(ABC):

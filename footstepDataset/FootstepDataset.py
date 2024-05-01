@@ -9,7 +9,7 @@ from scipy.io import wavfile
 from torch.utils.data import Dataset, DataLoader
 
 import utils
-from customLogger import CustomLogger
+from CustomLogger import CustomLogger
 from featureExtraction.FeatureCacher import FeatureCacher
 from featureExtraction.FeatureExtractor import FeatureExtractor, Filter, FeatureExtractorTKEO
 
@@ -54,7 +54,7 @@ class FootstepDataset(Dataset):
                 maxVal = np.max(dataArray)
                 dataArray /= maxVal
                 self.dataset = [[x, y] for x, y in zip(dataArray, labelArray)]
-                self.featureSize = dataArray.shape[1]
+                self.featureSize = dataArray.shape[1:]
                 break
 
     def __getitem__(self, index):
