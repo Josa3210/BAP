@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 from matplotlib import pyplot as plt
 from torch import nn
@@ -9,51 +11,88 @@ from featureExtraction.FeatureExtractor import FeatureExtractorTKEO
 from footstepDataset.FootstepDataset import FootstepDataset
 from utils import getDataRoot
 
+"""
+This function will train n times the same neural network and gather information about the results.
+
+Training:
+- Will create/load the right dataset.
+- Training is done nTraining times.
+- The parameters are defined in advance (epochs, folds, batchSize, ...)
+
+Results:
+- Validation loss of each training
+- Min and Max validation loss
+- Average validation loss
+- Std of validation loss
+- Best model:
+    - state_dict
+    - validation loss
+    - confusion matrix
+"""
+
+
+def printDict(dict, logger: logging.Logger):
+    for key in dict.keys():
+        str = f"{key:<10}: "
+        for value in dict.get(key):
+            if key == "Loss":
+                str += f"{value:.4f<5} "
+            else:
+                str += f"{value:.2f<5}% "
+        logger.info(str)
+
+
 if __name__ == '__main__':
+    # Get objects for debug/documentation
     logger = CustomLogger.getLogger(__name__)
     timer = Timer()
 
+    # Define the path to the different data files
     trainingPath = getDataRoot().joinpath("recordings")
     testPath = getDataRoot().joinpath("testData")
-    noisePath = trainingPath.joinpath(r"noiseProfile\noiseProfile2.wav")
+    noisePath = getDataRoot().joinpath(r"noiseProfile\noiseProfile2.wav")
 
+    # Define the type of data and add noise profile for filtering
     filterExtr = FeatureExtractorTKEO()
     filterExtr.noiseProfile = noisePath
 
+    # Choose the participants from which the data will be used
     participants = ["sylvia", "tine", "patrick", "celeste", "simon", "walter", "ann", "jan", "lieve"]
-    trainingDataset = FootstepDataset(trainingPath, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEO441"))
-    testDataset = FootstepDataset(testPath, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEOtest441"))
 
+    # Create training dataset
+    trainingDataset = FootstepDataset(trainingPath, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEO441"))
+
+    # Create type of neural network
     network = NeuralNetworkTKEO2(len(participants), trainingDataset.featureSize, nn.init.kaiming_uniform_)
 
-    batchSize = 32
+    # Set training parameters
     nTrainings = 10
+    batchSize = 32
+    learningRate = 0.00045
+    network.dropoutRate = 0.2
+    folds = 5
+    epochs = 100
 
+    # Initialise variables
     trainingResults = []
     trainingAccuracy = []
-    testResults = []
-    testAccuracy = []
     lossPerFold = []
 
-    network.learningRate = 0.00045
-    network.dropoutRate = 0.75
-    network.batchSize = batchSize
-    network.folds = 1
-    network.epochs = 350
-
+    # Start training
     logger.info(f"Start training for {nTrainings} trainings\n")
     timer.start()
+
     for i in range(nTrainings):
-        logger.info("=" * 30)
-        logger.info(f"Start training {i + 1}")
-        logger.info("=" * 30)
-        trainingResults.append(-network.trainOnData(trainingData=trainingDataset, verbose=False))
-        trainingAccuracy.append(sum(network.validationResults["Accuracy"]) / len(network.validationResults["Accuracy"]))
-        network.printResults(fullReport=False)
-        testResults.append(network.testOnData(testData=testDataset))
-        network.printResults(testResult=True)
+        validationResults, confMat = network.trainOnData(trainingData=trainingDataset, verbose=False, folds=folds, lr=learningRate, epochs=epochs, batchSize=batchSize)
+
+        trainingResults.extend(validationResults["Loss"])
+        trainingAccuracy.extend(validationResults["Accuracy"])
         lossPerFold.append(network.trainingLossesPerFold)
-        testAccuracy.append(sum(network.testResults["Accuracy"]) / len(network.testResults["Accuracy"]))
+
+        logger.info("=" * 30)
+        logger.info(f"Training {i + 1} results:")
+        printDict(validationResults, logger)
+        logger.info("=" * 30)
     timer.stop()
     logger.info(f"Finished training in {timer.get_elapsed_time() // 60} minutes {timer.get_elapsed_time() % 60:.2f} seconds ")
 
@@ -68,24 +107,19 @@ if __name__ == '__main__':
     axs[0].legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
     axs[1].plot(trainingResults, label="Training loss")
-    axs[1].plot(testResults, label="Test loss")
-    axs[1].set_title("Test and training loss", fontsize=30)
-    axs[1].set_xlabel("training")
-    axs[1].set_ylabel("loss")
-    axs[1].legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    axs[1].set_title("Training loss", fontsize=30)
+    axs[1].set_xlabel("Training")
+    axs[1].set_ylabel("Loss")
 
     logger.info(f"\nRESULT OF {nTrainings} TRAININGS")
     logger.info("=" * 30)
-    logger.info(f"Average training results:\t{np.mean(trainingResults):.5f}")
-    logger.info(f"Average training accuracy:\t{np.mean(trainingAccuracy):.2f}%")
+    logger.info("Validation loss")
+    logger.info(f"Average:\t{np.mean(trainingResults):.5f}")
+    logger.info("Validation accuracy:")
+    logger.info(f"Average:\t{np.mean(trainingAccuracy):.2f}%")
+    logger.info(f"Maximum:\t{np.max(trainingAccuracy):.2f}%")
+    logger.info(f"Minimum:\t{np.min(trainingAccuracy):.2f}%")
+    logger.info(f"Variance:\t{np.std(trainingAccuracy):.2f}%")
     logger.info("-" * 30)
-    logger.info(f"Average test results:\t{np.mean(testResults):.5f}")
-    logger.info(f"Average test accuracy:\t{np.mean(testAccuracy):.2f}%")
-    logger.info("-" * 30)
-    logger.info(f"Average accuracy:\t{np.mean([testAccuracy + trainingAccuracy]):.2f}%")
-    logger.info(f"Stdev accuracy:\t\t{np.std([testAccuracy + trainingAccuracy]):.2f}%")
-    logger.info(f"Max accuracy: {max(testAccuracy):.2f}%")
-    logger.info(f"Min accuracy: {min(testAccuracy):.2f}%")
-    logger.info("=" * 30)
 
     plt.show()

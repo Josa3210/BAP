@@ -151,7 +151,7 @@ class NeuralNetworkTKEO2(InterfaceNN):
                         inputSize = self.calcSizeConv(inputSize, filterSize=subLayer.kernel_size[0], stride=subLayer.stride[0], padding=int(subLayer.padding[0]))
                     if isinstance(subLayer, nn.AvgPool1d):
                         inputSize = self.calcSizePool(inputSize, filterSize=subLayer.kernel_size[0], stride=subLayer.stride[0], padding=int(subLayer.padding[0]))
-            endSize += inputSize
+                endSize += inputSize
         return endSize
 
     def forward(self, x: Tensor):
@@ -213,8 +213,6 @@ class NeuralNetworkSTFT(InterfaceNN):
             nn.Conv2d(in_channels=self.l3[0], out_channels=self.l4[0], kernel_size=self.l4[1], stride=self.l4[2], padding=round(self.l4[1] / 2)),
             nn.ReLU(),
             nn.AvgPool2d(2, 2),
-
-
         )
 
         # These layers are responsible for classification after being passed through the fLayers
