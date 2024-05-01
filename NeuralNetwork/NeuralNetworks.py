@@ -151,7 +151,7 @@ class NeuralNetworkTKEO2(InterfaceNN):
                         inputSize = self.calcSizeConv(inputSize, filterSize=subLayer.kernel_size[0], stride=subLayer.stride[0], padding=int(subLayer.padding[0]))
                     if isinstance(subLayer, nn.AvgPool1d):
                         inputSize = self.calcSizePool(inputSize, filterSize=subLayer.kernel_size[0], stride=subLayer.stride[0], padding=int(subLayer.padding[0]))
-            endSize += inputSize
+                endSize += inputSize
         return endSize
 
     def forward(self, x: Tensor):
