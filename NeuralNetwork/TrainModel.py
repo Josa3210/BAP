@@ -1,15 +1,13 @@
 import logging
-import math
-
 import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.metrics import ConfusionMatrixDisplay
 from torch import nn
 
-from NeuralNetwork.NeuralNetworks import NeuralNetworkTKEO, NeuralNetworkTKEO2
+from NeuralNetwork.NeuralNetworks import NeuralNetworkTKEO, NeuralNetworkTKEO2, NeuralNetworkSTFT
 from CustomLogger import CustomLogger
 from Timer import Timer
-from featureExtraction.FeatureExtractor import FeatureExtractorTKEO
+from featureExtraction.FeatureExtractor import FeatureExtractorTKEO, FeatureExtractorSTFT
 from footstepDataset.FootstepDataset import FootstepDataset
 from utils import getDataRoot
 
@@ -55,22 +53,22 @@ if __name__ == '__main__':
     noisePath = getDataRoot().joinpath(r"noiseProfile\noiseProfile2.wav")
 
     # Define the type of data and add noise profile for filtering
-    filterExtr = FeatureExtractorTKEO()
+    filterExtr = FeatureExtractorSTFT()
     filterExtr.noiseProfile = noisePath
 
     # Choose the participants from which the data will be used
     participants = ["sylvia", "tine", "patrick", "celeste", "simon", "walter", "ann", "jan", "lieve"]
 
     # Create training dataset
-    trainingDataset = FootstepDataset(trainingPath, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEO441"))
+    trainingDataset = FootstepDataset(trainingPath, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\STFT"))
 
     # Create type of neural network
-    network = NeuralNetworkTKEO2(len(participants), trainingDataset.featureSize, nn.init.kaiming_uniform_)
+    network = NeuralNetworkSTFT(len(participants), trainingDataset.featureSize, nn.init.kaiming_uniform_)
 
     # Set training parameters
     nTrainings = 10
     batchSize = 32
-    learningRate = 0.00045
+    learningRate = 0.001
     network.dropoutRate = 0.2
     folds = 1
     epochs = 250
@@ -78,9 +76,11 @@ if __name__ == '__main__':
     # Initialise variables
     trainingResults = []
     trainingAccuracy = []
-    lossPerFold = []
+    valLossPerFold = []
+    trainLossPerFold = []
 
     bestResult = 0
+    bestConfMat = None
     id = 1
 
     # Start training
@@ -92,7 +92,8 @@ if __name__ == '__main__':
 
         trainingResults.extend(validationResults["Loss"])
         trainingAccuracy.extend(validationResults["Accuracy"])
-        lossPerFold.append(network.trainingLossesPerFold)
+        valLossPerFold.append(network.validationLossesPerFold)
+        trainLossPerFold.append(network.trainingLossesPerFold)
 
         logger.info("=" * 30)
         logger.info(f"Training {i + 1} results:")
@@ -107,20 +108,17 @@ if __name__ == '__main__':
     timer.stop()
     logger.info(f"Finished training in {timer.get_elapsed_time() // 60} minutes {round(timer.get_elapsed_time() % 60)} seconds")
 
-    lossPerFold = np.array(lossPerFold)
-    fig, axs = plt.subplots(1, 2)
+    valLossPerFold = np.array(valLossPerFold)
+    trainLossPerFold = np.array(trainLossPerFold)
+    fig, axs = plt.subplots(1, nTrainings, sharex=True, sharey=True)
     for j in range(nTrainings):
-        meanLoss = lossPerFold[j].mean(axis=0)
-        axs[0].plot(meanLoss, label=f"Training {j + 1}")
-    axs[0].set_title("Average loss per epoch", fontsize=30)
-    axs[0].set_xlabel("Epochs")
-    axs[0].set_ylabel("Average loss")
-    axs[0].legend(loc='center left', bbox_to_anchor=(1, 0.5))
-
-    axs[1].plot(trainingResults, label="Training loss")
-    axs[1].set_title("Training loss", fontsize=30)
-    axs[1].set_xlabel("Training")
-    axs[1].set_ylabel("Loss")
+        trainMeanLoss = trainLossPerFold[j].mean(axis=0)
+        valMeanLoss = valLossPerFold[j].mean(axis=0)
+        axs[j].plot(trainMeanLoss, label=f"Training {j + 1}")
+        axs[j].plot(valMeanLoss, "--", label=f"Validation {j + 1}")
+    fig.suptitle("Average loss per epoch", fontsize=25)
+    fig.supxlabel("Epochs")
+    fig.supylabel("Average loss")
 
     logger.info(f"\nRESULT OF {nTrainings} TRAININGS")
     logger.info("=" * 30)
