@@ -203,14 +203,17 @@ class NeuralNetworkSTFT(InterfaceNN):
         self.fLayers = nn.Sequential(
             nn.Conv2d(in_channels=1, out_channels=self.l1[0], kernel_size=self.l1[1], stride=self.l1[2], padding=round(self.l1[1] / 2)),
             nn.Conv2d(in_channels=self.l1[0], out_channels=self.l2[0], kernel_size=self.l2[1], stride=self.l2[2], padding=round(self.l2[1] / 2)),
+            nn.BatchNorm2d(self.l2[0]),
             nn.ReLU(),
             nn.AvgPool2d(2, 2),
             nn.Conv2d(in_channels=self.l2[0], out_channels=self.l3[0], kernel_size=self.l3[1], stride=self.l3[2], padding=round(self.l3[1] / 2)),
             nn.Conv2d(in_channels=self.l3[0], out_channels=self.l4[0], kernel_size=self.l4[1], stride=self.l4[2], padding=round(self.l4[1] / 2)),
+            nn.BatchNorm2d(self.l4[0]),
             nn.ReLU(),
             nn.AvgPool2d(2, 2),
             nn.Conv2d(in_channels=self.l2[0], out_channels=self.l3[0], kernel_size=self.l3[1], stride=self.l3[2], padding=round(self.l3[1] / 2)),
             nn.Conv2d(in_channels=self.l3[0], out_channels=self.l4[0], kernel_size=self.l4[1], stride=self.l4[2], padding=round(self.l4[1] / 2)),
+            nn.BatchNorm2d(self.l4[0]),
             nn.ReLU(),
             nn.AvgPool2d(2, 2),
         )

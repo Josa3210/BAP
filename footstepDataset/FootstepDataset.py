@@ -45,6 +45,7 @@ class FootstepDataset(Dataset):
                     self.labelStrings.append(labelName)
 
                 target = self.labelStrings.index(labelName)
+                target = torch.tensor(target)
                 labelArray.append(target)
 
                 # Append the acquired data to the array

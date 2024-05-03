@@ -29,6 +29,7 @@ class InterfaceNN(nn.Module):
 
         self.validationConfMat = None
         self.trainingLossesPerFold = []
+        self.validationLossesPerFold = []
 
         self.trainingData = None
         self.testData = None
@@ -42,6 +43,14 @@ class InterfaceNN(nn.Module):
     @abstractmethod
     def forward(self, x: Tensor):
         pass
+
+    @property
+    def bestLR(self):
+        return self._bestLR
+
+    @bestLR.setter
+    def bestLR(self, value):
+        self.bestLR = value
 
     @property
     def dropoutRate(self):
@@ -92,12 +101,6 @@ class InterfaceNN(nn.Module):
     def calcSizePool(inputSize, filterSize: int, stride: int, dilation: int = 1, padding: int = 0):
         return math.floor(((inputSize + 2 * padding) - (dilation * (filterSize - 1)) - 1) / stride) + 1
 
-    def clearResults(self, clearTestResults: bool = False):
-        if clearTestResults:
-            self.testResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
-        else:
-            self.validationResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
-
     def trainOnData(self,
                     trainingData: Dataset = None,
                     folds: int = None,
@@ -133,6 +136,7 @@ class InterfaceNN(nn.Module):
 
         bestResult = math.inf
         self.trainingLossesPerFold = []
+        self.validationLossesPerFold = []
         validationResults = {"Loss": [], "Accuracy": [], "Precision": [], "Recall": []}
         bestConfMat = None
 
@@ -178,6 +182,9 @@ class InterfaceNN(nn.Module):
             optimizer: torch.optim.Optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
             trainingLossPerEpoch = []
+            validationLossPerEpoch = []
+            avgValidationLoss = 0
+            confMatPred, confMatTarget = [], []
 
             # Start training epochs
             for epoch in range(epochs):
@@ -185,8 +192,12 @@ class InterfaceNN(nn.Module):
                 self.logger.debug(f'\nStarting epoch {epoch + 1}')
                 self.logger.debug("-" * 30)
 
+                # Lists for creating confusion matrix and loss
+                confMatPred, confMatTarget = [], []
+
                 # Set current loss value
-                currentLoss = 0.
+                currentTrainingLoss = 0.
+                currentValidationLoss = 0.
 
                 # Iterate over the DataLoader for training data
                 for i, batch in enumerate(trainLoader):
@@ -211,42 +222,38 @@ class InterfaceNN(nn.Module):
                     optimizer.step()
 
                     # Print statistics
-                    currentLoss += loss.item()
+                    currentTrainingLoss += loss.item()
 
-                    if (i + 1) % 2 == 0:
-                        self.logger.debug(f"{i:4d} / {len(trainLoader)} batches: average loss = {currentLoss / (i + 1)}")
+                avgTrainingLoss = currentTrainingLoss / len(trainLoader)
 
-                trainingLossPerEpoch.append(currentLoss / len(trainLoader))
+                with torch.no_grad():
+                    # Iterate over the test data and generate predictions
+                    for i, batch in enumerate(validationLoader):
+                        # Get inputs
+                        inputs, targets = batch
+
+                        inputs = inputs.to(self.device)
+                        targets = targets.to(self.device)
+
+                        # Generate outputs
+                        outputs = self(inputs)
+
+                        # Set total and correct
+                        _, predicted = torch.max(outputs.data, 1)
+
+                        loss = self.lossFunction(outputs, targets)
+                        currentValidationLoss += loss.item()
+
+                        confMatPred.extend(predicted.data.cpu().numpy())
+                        confMatTarget.extend(targets.data.cpu().numpy())
+
+                avgValidationLoss = currentValidationLoss / len(validationLoader)
+
+                trainingLossPerEpoch.append(avgTrainingLoss)
+                validationLossPerEpoch.append(avgValidationLoss)
 
             # Evaluation for this fold
             self.logger.debug('-' * 30)
-
-            # Lists for creating confusion matrix and loss
-            currentLoss = 0.
-            confMatPred, confMatTarget = [], []
-
-            with torch.no_grad():
-                # Iterate over the test data and generate predictions
-                for i, batch in enumerate(validationLoader):
-                    # Get inputs
-                    inputs, targets = batch
-
-                    inputs = inputs.to(self.device)
-                    targets = targets.to(self.device)
-
-                    # Generate outputs
-                    outputs = self(inputs)
-
-                    # Set total and correct
-                    _, predicted = torch.max(outputs.data, 1)
-
-                    loss = self.lossFunction(outputs, targets)
-                    currentLoss += loss.item()
-
-                    confMatPred.extend(predicted.data.cpu().numpy())
-                    confMatTarget.extend(targets.data.cpu().numpy())
-
-                avgValidationLoss = currentLoss / len(validationLoader)
 
             # Save best model
             if avgValidationLoss < bestResult:
@@ -260,12 +267,13 @@ class InterfaceNN(nn.Module):
             validationResults["Precision"].append(metrics.precision_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
             validationResults["Recall"].append(metrics.recall_score(confMatTarget, confMatPred, average="macro", zero_division=0) * 100)
             self.trainingLossesPerFold.append(trainingLossPerEpoch)
+            self.validationLossesPerFold.append(validationLossPerEpoch)
 
         return validationResults, bestConfMat
 
     def testOnData(self,
                    testData: Dataset,
-                   batchSize: int = None):
+                   batchSize: int = 32):
 
         # Initialize parameters
         if testData is not None:
@@ -275,6 +283,8 @@ class InterfaceNN(nn.Module):
         if self.testData is None:
             self.logger.info("Define trainingdata using network.setTrainingData()")
             return None
+
+        self.to(self.device)
 
         # Create dataloader
         testLoader = DataLoader(dataset=testData, batch_size=batchSize, shuffle=True)
@@ -319,10 +329,7 @@ class InterfaceNN(nn.Module):
                        bounds: dict[str, tuple[float, float]],
                        trainingData: Dataset = None,
                        init_points: int = 5,
-                       n_iter: int = 25,
-                       folds: int = None,
-                       epochs: int = None,
-                       batchSize: int = None):
+                       n_iter: int = 25):
 
         results = dict.fromkeys(bounds.keys(), 0)
         params = ""
@@ -404,16 +411,26 @@ class InterfaceNN(nn.Module):
                     self.logger.info(subLayers.weight)
 
     def printLoss(self):
-        xEpochs = list(range(self.epochs))
-        for i in range(self.folds):
-            plt.plot(xEpochs, self.trainingLossesPerFold[i], label=f"Fold {i + 1}")
-        plt.title("Average loss per epoch", fontsize=30)
-        plt.xlabel("Epochs")
-        plt.ylabel("Average loss")
-        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+        folds = len(self.trainingLossesPerFold)
+        if folds > 1:
+            fig, axs = plt.subplots(1, folds)
+            for i in range(folds):
+                axs[i].plot(self.trainingLossesPerFold[i], label=f"Train")
+                axs[i].plot(self.validationLossesPerFold[i], label=f"Val")
+                axs[i].title("Average loss per epoch", fontsize=30)
+                axs[i].xlabel("Epochs")
+                axs[i].legend()
+
+        else:
+            plt.plot(self.trainingLossesPerFold, label=f"Train")
+            plt.plot(self.validationLossesPerFold, label=f"Val")
+            plt.title("Average loss per epoch", fontsize=30)
+            plt.xlabel("Epochs")
+            plt.legend()
+
         plt.show()
 
-    def printResults(self, results, confMat, testResult: bool = False, fullReport: bool = False):
+    def printResults(self, results,testResult: bool = False, fullReport: bool = False):
         if testResult:
             typeResults = "Test"
         else:
