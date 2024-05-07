@@ -108,7 +108,8 @@ class InterfaceNN(nn.Module):
                     batchSize: int = None,
                     lr: float = None,
                     dr: float = None,
-                    verbose: bool = False):
+                    verbose: bool = False,
+                    saveModel: bool = False):
 
         # Initialize parameters
         if trainingData is not None:
@@ -225,6 +226,7 @@ class InterfaceNN(nn.Module):
                     currentTrainingLoss += loss.item()
 
                 avgTrainingLoss = currentTrainingLoss / len(trainLoader)
+                self.logger.debug(f"Average training loss: {avgTrainingLoss}")
 
                 with torch.no_grad():
                     # Iterate over the test data and generate predictions
@@ -258,8 +260,8 @@ class InterfaceNN(nn.Module):
             # Save best model
             if avgValidationLoss < bestResult:
                 bestConfMat: confusion_matrix = confusion_matrix(y_true=confMatTarget, y_pred=confMatPred)
-                self.saveModel(self.savePath, "BestResult")
                 bestResult = avgValidationLoss
+                if saveModel: self.saveModel(self.savePath, "BestResult")
 
             # Add current results to dictionary
             validationResults["Loss"].append(avgValidationLoss)
@@ -270,7 +272,8 @@ class InterfaceNN(nn.Module):
             self.validationLossesPerFold.append(validationLossPerEpoch)
 
         # Set itself to the best model from the fold
-        self.loadModel(self.savePath.joinpath(self._name + "-" + "BestResult.pth"))
+        if saveModel:
+            self.loadModel(self.savePath.joinpath(self._name + "-" + "BestResult.pth"))
         return validationResults, bestConfMat
 
     def testOnData(self,
@@ -370,8 +373,11 @@ class InterfaceNN(nn.Module):
 
         return results
 
-    def funcToOptimize(self, epochs, lr, dr):
-        result, confMat = self.trainOnData(folds=1, epochs=epochs, lr=lr, dr=dr)
+    def funcToOptimize(self, lr, dr: int = None, epochs: int = 350):
+        if dr is None:
+            dr = self.dropoutRate
+
+        result, confMat = self.trainOnData(folds=1, epochs=epochs, lr=lr, dr=dr, batchSize=32, saveModel=False)
         return - (sum(result["Loss"]) / len(result["Loss"]))
 
     def saveModel(self, path: Path = None, name: str = None, idNr: int = None):

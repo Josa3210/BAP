@@ -1,4 +1,4 @@
-function extracted = extractTKEOFeatures(val, fs, newFs)
+function [extracted, newFs] = extractTKEOFeatures(val, fs, newFs)
     arguments
         val (:,1) double
         fs (1,1) double

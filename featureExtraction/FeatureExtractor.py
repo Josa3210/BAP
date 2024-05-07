@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+import numpy as np
+
 import utils
 from scipy.io import wavfile
 import os.path
@@ -11,11 +13,10 @@ from CustomLogger import CustomLogger
 
 class FeatureExtractor(ABC):
     @abstractmethod
-    def __init__(self, funcPath: str = "extractTKEOFeatures.m", filterPath: str = "spectralSubtraction.m", noiseProfile: list[float] = None):
+    def __init__(self, funcPath: str = "extractTKEOFeatures.m", filterPath: str = "spectralSubtraction.m", noiseProfile: list[float] = None, engine: matlab.engine.MatlabEngine = None):
         # Get the directory where this file is locate and add the trainingPath to the function to it
         self.funcPath = utils.getFunctionPath().joinpath(funcPath)
         self.filterPath = utils.getFunctionPath().joinpath(filterPath)
-
         self.logger = CustomLogger.getLogger(__name__)
 
         # Check if the trainingPath to the featureExtraction.m file exists
@@ -29,7 +30,10 @@ class FeatureExtractor(ABC):
             return
 
         # Matlab engine for running the necessary functions
-        self.eng = matlab.engine.start_matlab()
+        if engine is None:
+            self.eng = matlab.engine.start_matlab()
+        else:
+            self.eng = engine
 
         # Set matlab directory to current directory
         self.eng.cd(str(utils.getFunctionPath()))
@@ -64,13 +68,14 @@ class FeatureExtractor(ABC):
 
 
 class FeatureExtractorTKEO(FeatureExtractor):
-    def __init__(self, funcPath: str = "extractTKEOFeatures.m", filterPath: str = "spectralSubtraction.m", noiseProfile: list[float] = None):
-        super().__init__(funcPath, filterPath, noiseProfile)
+    def __init__(self, funcPath: str = "extractTKEOFeatures.m", filterPath: str = "spectralSubtraction.m", noiseProfile: list[float] = None, engine: matlab.engine.MatlabEngine = None):
+        super().__init__(funcPath, filterPath, noiseProfile, engine=engine)
 
     def extract(self, signal, fs):
         # Output size: 176319
-        result = self.eng.extractTKEOFeatures(signal, fs)
-        return result
+        result, newFs = self.eng.extractTKEOFeatures(signal, fs, nargout=2)
+        result = np.array(result).squeeze()
+        return result, newFs
 
     def filter(self, signal, fs):
         if self.noiseProfile is None:
@@ -82,12 +87,13 @@ class FeatureExtractorTKEO(FeatureExtractor):
         nFramesAveraged = 0
         overlap = 0.5  # Standard set to 0.5
         filteredSignal, SNR = self.eng.spectralSubtraction(signal, profile, fs, nFFT, nFramesAveraged, overlap, nargout=2)
+        filteredSignal = np.array(filteredSignal).squeeze()
         return filteredSignal, SNR
 
 
 class FeatureExtractorSTFT(FeatureExtractor):
-    def __init__(self, funcPath: str = "extractSTFTFeatures.m", filterPath: str = "spectralSubtraction.m", noiseProfile: list[float] = None, nFFT: int = 4096, bound: int = 50):
-        super().__init__(funcPath, filterPath, noiseProfile)
+    def __init__(self, funcPath: str = "extractSTFTFeatures.m", filterPath: str = "spectralSubtraction.m", noiseProfile: list[float] = None, nFFT: int = 4096, bound: int = 50, engine: matlab.engine.MatlabEngine = None):
+        super().__init__(funcPath, filterPath, noiseProfile, engine=engine)
         self.nFFT = nFFT
         self.bound = bound
         self.logScale = False
@@ -124,6 +130,7 @@ class FeatureExtractorSTFT(FeatureExtractor):
         nFramesAveraged = 0
         overlap = 0.5  # Standard set to 0.5
         filteredSignal, SNR = self.eng.spectralSubtraction(signal, profile, fs, nFFT, nFramesAveraged, overlap, nargout=2)
+        filteredSignal = np.array(filteredSignal).squeeze()
         return filteredSignal, SNR
 
     def extract(self, signal, fs):
@@ -131,24 +138,23 @@ class FeatureExtractorSTFT(FeatureExtractor):
 
     def extractLogScale(self, signal, fs):
         self.logScale = True
-        extracted = self.eng.extractSTFTFeatures(signal, fs, self.nFFT, self.bound, self.logScale, False)
-        return extracted
+        extracted, fs = self.eng.extractSTFTFeatures(signal, fs, self.nFFT, self.bound, self.logScale, False, nargout=2)
+        return extracted, fs
 
     def extractNormal(self, signal, fs):
         self.logScale = False
-        extracted = self.eng.extractSTFTFeatures(signal, fs, self.nFFT, self.bound, self.logScale, False)
-        return extracted
+        extracted, fs = self.eng.extractSTFTFeatures(signal, fs, self.nFFT, self.bound, self.logScale, False, nargout=2)
+        extracted = np.array(extracted).squeeze()
+        return extracted, fs
 
 
 class Filter(FeatureExtractor):
 
-    def __init__(self, funcPath: str = "extractTKEOFeatures.m", filterPath: str = "spectralSubtraction.m", noiseProfile: list[float] = None):
-        super().__init__(funcPath, filterPath, noiseProfile)
+    def __init__(self, funcPath: str = "extractTKEOFeatures.m", filterPath: str = "spectralSubtraction.m", noiseProfile: list[float] = None, engine: matlab.engine.MatlabEngine = None):
+        super().__init__(funcPath, filterPath, noiseProfile,engine=engine)
         self.nFFT = 256
         self.nFramesAveraged = 0
         self.overlap = 0.5  # Standard set to 0.5
-
-        pass
 
     @property
     def nFFT(self):
@@ -178,10 +184,12 @@ class Filter(FeatureExtractor):
         super().filter(signal, fs)
 
         filteredSignal, SNR = self.eng.spectralSubtraction(signal, self.noiseProfile, fs, self.nFFT, self.nFramesAveraged, self.overlap, nargout=2)
+        filteredSignal = np.array(filteredSignal).squeeze()
         return filteredSignal, SNR
 
     def extract(self, signal, fs):
-        return signal
+        result = np.array(signal).squeeze()
+        return result
 
     def filterAdv(self, signal, fs, nFFT, nFramesAveraged, overlap):
         self.nFFT = nFFT

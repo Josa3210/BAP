@@ -94,26 +94,32 @@ class NeuralNetworkTKEO2(InterfaceNN):
         self.logger.debug(f"Input features: {sFeatures}")
         # These layers are responsible for extracting features and fixing offsets
         self.convLayers1 = nn.Sequential(
+            nn.Dropout(self.dropoutRate),
             nn.Conv1d(in_channels=1, out_channels=self.conf2[0], kernel_size=self.conf2[1], stride=self.conf2[2], padding=round(self.conf2[1] / 2)),
             nn.ReLU(),
+            nn.Dropout(self.dropoutRate),
             nn.Conv1d(in_channels=self.conf2[0], out_channels=self.conf2[0], kernel_size=self.conf2[1], stride=self.conf2[2], padding=round(self.conf2[1] / 2)),
             nn.ReLU(),
-            nn.AvgPool1d(2, 2)
+            nn.MaxPool1d(2, 2)
         )
 
         self.convLayers2 = nn.Sequential(
+            nn.Dropout(self.dropoutRate),
             nn.Conv1d(in_channels=self.conf2[0], out_channels=self.conf1[0], kernel_size=self.conf1[1], stride=self.conf1[2], padding=round(self.conf1[1] / 2)),
             nn.ReLU(),
+            nn.Dropout(self.dropoutRate),
             nn.Conv1d(in_channels=self.conf1[0], out_channels=self.conf1[0], kernel_size=self.conf1[1], stride=self.conf1[2], padding=round(self.conf1[1] / 2)),
             nn.ReLU(),
-            nn.AvgPool1d(2, 2))
+            nn.MaxPool1d(2, 2))
 
         self.convLayers3 = nn.Sequential(
+            nn.Dropout(self.dropoutRate),
             nn.Conv1d(in_channels=self.conf1[0], out_channels=self.conf1[0], kernel_size=self.conf1[1], stride=self.conf1[2], padding=round(self.conf1[1] / 2)),
             nn.ReLU(),
+            nn.Dropout(self.dropoutRate),
             nn.Conv1d(in_channels=self.conf1[0], out_channels=self.conf1[0], kernel_size=self.conf1[1], stride=self.conf1[2], padding=round(self.conf1[1] / 2)),
             nn.ReLU(),
-            nn.AvgPool1d(2, 2)
+            nn.MaxPool1d(2, 2)
         )
 
         self.convLayers4 = nn.Sequential(
@@ -121,46 +127,211 @@ class NeuralNetworkTKEO2(InterfaceNN):
             nn.ReLU(),
             nn.Conv1d(in_channels=self.conf1[0], out_channels=self.conf1[0], kernel_size=self.conf1[1], stride=self.conf1[2], padding=round(self.conf1[1] / 2)),
             nn.ReLU(),
-            nn.AvgPool1d(2, 2)
+            nn.MaxPool1d(2, 2)
         )
 
         inputS1 = self.calcInputSize(sFeatures, 1)
         self.skipLayer1 = nn.Sequential(
+            nn.Dropout(self.dropoutRate),
             nn.Linear(inputS1, 512),
             nn.ReLU(),
+            nn.Dropout(self.dropoutRate),
             nn.Linear(512, 128),
-            nn.ReLU()
+            nn.Softmax(dim=1)
         )
 
         inputS2 = self.calcInputSize(sFeatures, 2)
         self.skipLayer2 = nn.Sequential(
+            nn.Dropout(self.dropoutRate),
             nn.Linear(inputS2, 512),
             nn.ReLU(),
+            nn.Dropout(self.dropoutRate),
             nn.Linear(512, 128),
-            nn.ReLU()
+            nn.Softmax(dim=1)
         )
 
         inputS3 = self.calcInputSize(sFeatures, 3)
         self.skipLayer3 = nn.Sequential(
+            nn.Dropout(self.dropoutRate),
             nn.Linear(inputS3, 256),
             nn.ReLU(),
+            nn.Dropout(self.dropoutRate),
             nn.Linear(256, 128),
-            nn.ReLU()
+            nn.Softmax(dim=1)
         )
 
         inputS4 = self.calcInputSize(sFeatures, 4)
         self.skipLayer4 = nn.Sequential(
+            nn.Dropout(self.dropoutRate),
             nn.Linear(inputS4, 256),
             nn.ReLU(),
+            nn.Dropout(self.dropoutRate),
             nn.Linear(256, 128),
-            nn.ReLU()
+            nn.Softmax(dim=1)
         )
 
         # These layers are responsible for classification after being passed through the convLayers
-        self.cInput = self.conf2[0] * 4 * 128
+        self.cInput = self.conf2[0] * 2 * 128
         self.logger.debug(f"cInput: {self.cInput}")
 
         self.denseLayers = nn.Sequential(
+            # nn.Dropout(self.dropoutRate),
+            # nn.Linear(560, 1024),
+            # nn.ReLU(),
+            nn.Dropout(self.dropoutRate),
+            nn.Linear(1110, 512),
+            nn.ReLU(),
+            nn.Dropout(self.dropoutRate),
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.Dropout(self.dropoutRate),
+            nn.Linear(256, nPersons),
+            nn.Softmax(dim=1)
+        )
+        self.apply(self.initWeightsZero)
+
+    def calcInputSize(self, nInput, end: int):
+        iteration = 0
+        inputSize = nInput[0]
+
+        for layers in self.children():
+            if iteration < end:
+                if isinstance(layers, nn.Sequential):
+                    for subLayer in layers.children():
+                        if isinstance(subLayer, nn.Conv1d):
+                            inputSize = self.calcSizeConv(inputSize, filterSize=subLayer.kernel_size[0], stride=subLayer.stride[0], padding=int(subLayer.padding[0]))
+                        if isinstance(subLayer, nn.MaxPool1d):
+                            inputSize = self.calcSizePool(inputSize, filterSize=subLayer.kernel_size, stride=subLayer.stride, padding=int(subLayer.padding))
+                    iteration += 1
+            else:
+                return inputSize
+
+    def forward(self, x: Tensor):
+        # Add a dimension in front of feature --> "1 channel"
+        x = x.unsqueeze(1)
+        # Run through the different layers
+        x1 = self.convLayers1.forward(x)
+        # x1s = self.skipLayer1(x1)
+        # xfl1 = torch.flatten(x1s, start_dim=1)
+
+        x2 = self.convLayers2.forward(x1)
+        # x2s = self.skipLayer2(x2)
+        # xfl2 = torch.flatten(x2s, start_dim=1)
+
+        x3 = self.convLayers3.forward(x2)
+        # x3s = self.skipLayer3(x3)
+        # xfl3 = torch.flatten(x3s, start_dim=1)
+
+        # x4 = self.convLayers4.forward(x3)
+        # x4s = self.skipLayer4(x4)
+        # xfl4 = torch.flatten(x4s, start_dim=1)
+
+        # Flatten en discard the different channels
+        # xtot = torch.cat((xfl1, xfl2), dim=1)
+        xtot = torch.flatten(x3, start_dim=1)
+        # Run through classification layers
+        out = self.denseLayers.forward(xtot)
+        return out
+
+    def getTransformedSample(self, sample: torch.Tensor):
+        print(sample)
+        tSample = sample.unsqueeze(1)
+        sample = self.convLayers.forward(tSample)
+        print(sample)
+
+
+class NeuralNetworkTKEO3(InterfaceNN):
+
+    def __init__(self, nPersons: int, sFeatures, method: nn.init = nn.init.xavier_normal_):
+        super().__init__("NeuralNetworkTKEO2", method)
+        # Params layer1
+        self.conf1 = [5, 128, 1]
+        self.conf2 = [5, 64, 1]
+        self.logger.debug(f"Input features: {sFeatures}")
+        # These layers are responsible for extracting features and fixing offsets
+        self.convLayers1 = nn.Sequential(
+            nn.Dropout(self.dropoutRate),
+            nn.Conv1d(in_channels=1, out_channels=self.conf2[0], kernel_size=self.conf2[1], stride=self.conf2[2], padding=round(self.conf2[1] / 2)),
+            nn.ReLU(),
+            nn.Dropout(self.dropoutRate),
+            nn.Conv1d(in_channels=self.conf2[0], out_channels=self.conf2[0], kernel_size=self.conf2[1], stride=self.conf2[2], padding=round(self.conf2[1] / 2)),
+            nn.ReLU(),
+            nn.MaxPool1d(2, 2)
+        )
+
+        self.convLayers2 = nn.Sequential(
+            nn.Dropout(self.dropoutRate),
+            nn.Conv1d(in_channels=self.conf2[0], out_channels=self.conf1[0], kernel_size=self.conf1[1], stride=self.conf1[2], padding=round(self.conf1[1] / 2)),
+            nn.ReLU(),
+            nn.Dropout(self.dropoutRate),
+            nn.Conv1d(in_channels=self.conf1[0], out_channels=self.conf1[0], kernel_size=self.conf1[1], stride=self.conf1[2], padding=round(self.conf1[1] / 2)),
+            nn.ReLU(),
+            nn.MaxPool1d(2, 2))
+
+        self.convLayers3 = nn.Sequential(
+            nn.Dropout(self.dropoutRate),
+            nn.Conv1d(in_channels=self.conf1[0], out_channels=self.conf1[0], kernel_size=self.conf1[1], stride=self.conf1[2], padding=round(self.conf1[1] / 2)),
+            nn.ReLU(),
+            nn.Dropout(self.dropoutRate),
+            nn.Conv1d(in_channels=self.conf1[0], out_channels=self.conf1[0], kernel_size=self.conf1[1], stride=self.conf1[2], padding=round(self.conf1[1] / 2)),
+            nn.ReLU(),
+            nn.MaxPool1d(2, 2)
+        )
+
+        self.convLayers4 = nn.Sequential(
+            nn.Conv1d(in_channels=self.conf1[0], out_channels=self.conf1[0], kernel_size=self.conf1[1], stride=self.conf1[2], padding=round(self.conf1[1] / 2)),
+            nn.ReLU(),
+            nn.Conv1d(in_channels=self.conf1[0], out_channels=self.conf1[0], kernel_size=self.conf1[1], stride=self.conf1[2], padding=round(self.conf1[1] / 2)),
+            nn.ReLU(),
+            nn.MaxPool1d(2, 2)
+        )
+
+        inputS1 = self.calcInputSize(sFeatures, 1)
+        self.skipLayer1 = nn.Sequential(
+            nn.Dropout(self.dropoutRate),
+            nn.Linear(inputS1, 512),
+            nn.ReLU(),
+            nn.Dropout(self.dropoutRate),
+            nn.Linear(512, 128),
+            nn.Softmax(dim=1)
+        )
+
+        inputS2 = self.calcInputSize(sFeatures, 2)
+        self.skipLayer2 = nn.Sequential(
+            nn.Dropout(self.dropoutRate),
+            nn.Linear(inputS2, 512),
+            nn.ReLU(),
+            nn.Dropout(self.dropoutRate),
+            nn.Linear(512, 128),
+            nn.Softmax(dim=1)
+        )
+
+        inputS3 = self.calcInputSize(sFeatures, 3)
+        self.skipLayer3 = nn.Sequential(
+            nn.Dropout(self.dropoutRate),
+            nn.Linear(inputS3, 256),
+            nn.ReLU(),
+            nn.Dropout(self.dropoutRate),
+            nn.Linear(256, 128),
+            nn.Softmax(dim=1)
+        )
+
+        inputS4 = self.calcInputSize(sFeatures, 4)
+        self.skipLayer4 = nn.Sequential(
+            nn.Dropout(self.dropoutRate),
+            nn.Linear(inputS4, 256),
+            nn.ReLU(),
+            nn.Dropout(self.dropoutRate),
+            nn.Linear(256, 128),
+            nn.Softmax(dim=1)
+        )
+
+        # These layers are responsible for classification after being passed through the convLayers
+        self.cInput = self.conf2[0] * 3 * 128
+        self.logger.debug(f"cInput: {self.cInput}")
+
+        self.denseLayers = nn.Sequential(
+            nn.Dropout(self.dropoutRate),
             nn.Linear(self.cInput, 1024),
             nn.ReLU(),
             nn.Dropout(self.dropoutRate),
@@ -185,8 +356,8 @@ class NeuralNetworkTKEO2(InterfaceNN):
                     for subLayer in layers.children():
                         if isinstance(subLayer, nn.Conv1d):
                             inputSize = self.calcSizeConv(inputSize, filterSize=subLayer.kernel_size[0], stride=subLayer.stride[0], padding=int(subLayer.padding[0]))
-                        if isinstance(subLayer, nn.AvgPool1d):
-                            inputSize = self.calcSizePool(inputSize, filterSize=subLayer.kernel_size[0], stride=subLayer.stride[0], padding=int(subLayer.padding[0]))
+                        if isinstance(subLayer, nn.MaxPool1d):
+                            inputSize = self.calcSizePool(inputSize, filterSize=subLayer.kernel_size, stride=subLayer.stride, padding=int(subLayer.padding))
                     iteration += 1
             else:
                 return inputSize
@@ -194,27 +365,7 @@ class NeuralNetworkTKEO2(InterfaceNN):
     def forward(self, x: Tensor):
         # Add a dimension in front of feature --> "1 channel"
         x = x.unsqueeze(1)
-        # Run through the different layers
-        x1 = self.convLayers1.forward(x)
-        x1s = self.skipLayer1(x1)
-        xfl1 = torch.flatten(x1s, start_dim=1)
 
-        x2 = self.convLayers2.forward(x1)
-        x2s = self.skipLayer2(x2)
-        xfl2 = torch.flatten(x2s, start_dim=1)
-
-        x3 = self.convLayers3.forward(x2)
-        x3s = self.skipLayer3(x3)
-        xfl3 = torch.flatten(x3s, start_dim=1)
-
-        x4 = self.convLayers4.forward(x3)
-        x4s = self.skipLayer4(x4)
-        xfl4 = torch.flatten(x4s, start_dim=1)
-
-        # Flatten en discard the different channels
-        xtot = torch.cat((xfl1, xfl2, xfl3, xfl4), dim=1)
-
-        # Run through classification layers
         out = self.denseLayers.forward(xtot)
         return out
 
@@ -304,37 +455,3 @@ class NeuralNetworkSTFT(InterfaceNN):
         # Run through classification layers
         x = self.denseLayers.forward(x)
         return x
-
-
-if __name__ == '__main__':
-    path = getDataRoot().joinpath("recordings")
-    filterExtr = FeatureExtractorTKEO()
-    filterExtr.noiseProfile = path.joinpath(r"noiseProfile\noiseProfile2.wav")
-    participants = ["sylvia", "tine", "patrick", "celeste", "simon", "walter", "ann", "jan", "lieve"]
-    # participants = ["sylvia", "tine", "patrick", "celeste", "simon"]
-    dataset = FootstepDataset(path, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\STFT"))
-    testPath = getDataRoot().joinpath("testData")
-    testDataset = FootstepDataset(testPath, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\STFTtest"))
-    batchSize = 32
-    sFeatures = dataset.featureSize
-    network = NeuralNetworkSTFT(len(participants), sFeatures, nn.init.kaiming_uniform_)
-    network.learningRate = 0.00045
-    network.dropoutRate = 0.20
-    network.batchSize = batchSize
-    network.folds = 1
-    network.epochs = 350
-
-    # bounds = {"epochs": (200, 500)}
-    # results = network.optimizeParams(bounds=bounds, trainingData=dataset, batchSize=batchSize)
-
-    # network.trainOnData(trainingData=dataset, folds=1, epochs=results.get("epochs"), batchSize=batchSize, verbose=True, lr=0.00045, dr=0.75)
-    network.trainOnData(trainingData=dataset, verbose=True)
-    network.printResults(fullReport=True)
-    network.testOnData(testData=testDataset)
-    network.printResults(testResult=True)
-    network.printLoss()
-
-    savePrompt = input("Do you want to save? (Y or N) ")
-    if savePrompt.capitalize() == "Y":
-        saveName = input("Which name do you want to give it?: ")
-        network.saveModel(getDataRoot().joinpath("models"), name=saveName)

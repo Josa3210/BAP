@@ -8,6 +8,7 @@ from NeuralNetwork.NeuralNetworks import NeuralNetworkTKEO, NeuralNetworkTKEO2, 
 from CustomLogger import CustomLogger
 from Timer import Timer
 from featureExtraction.FeatureExtractor import FeatureExtractorTKEO, FeatureExtractorSTFT
+from featureExtraction.Transforms import AddOffset
 from footstepDataset.FootstepDataset import FootstepDataset
 from utils import getDataRoot
 
@@ -56,22 +57,25 @@ if __name__ == '__main__':
     filterExtr = FeatureExtractorSTFT()
     filterExtr.noiseProfile = noisePath
 
+    # Add a transformation to the data for more datapoints
+    transformer = AddOffset(amount=5, maxTimeOffset=1)
+
     # Choose the participants from which the data will be used
     participants = ["sylvia", "tine", "patrick", "celeste", "simon", "walter", "ann", "jan", "lieve"]
 
     # Create training dataset
-    trainingDataset = FootstepDataset(trainingPath, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\STFT"))
+    trainingDataset = FootstepDataset(trainingPath, fExtractor=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEO"), transformer=transformer)
 
     # Create type of neural network
     network = NeuralNetworkSTFT(len(participants), trainingDataset.featureSize, nn.init.kaiming_uniform_)
 
     # Set training parameters
-    nTrainings = 10
+    nTrainings = 3
     batchSize = 32
     learningRate = 0.001
     network.dropoutRate = 0.2
     folds = 1
-    epochs = 250
+    epochs = 150
 
     # Initialise variables
     trainingResults = []
@@ -81,14 +85,15 @@ if __name__ == '__main__':
 
     bestResult = 0
     bestConfMat = None
-    id = 1
+    id = 2
 
     # Start training
-    logger.info(f"Start training for {nTrainings} trainings\n")
+    logger.info(f"Start training for {nTrainings} trainings")
+    logger.info(f"Amount of data: {len(trainingDataset.dataset)}")
     timer.start()
 
     for i in range(nTrainings):
-        validationResults, confMat = network.trainOnData(trainingData=trainingDataset, verbose=False, folds=folds, lr=learningRate, epochs=epochs, batchSize=batchSize)
+        validationResults, confMat = network.trainOnData(trainingData=trainingDataset, verbose=False, folds=folds, lr=learningRate, epochs=epochs, batchSize=batchSize, saveModel=True)
 
         trainingResults.extend(validationResults["Loss"])
         trainingAccuracy.extend(validationResults["Accuracy"])

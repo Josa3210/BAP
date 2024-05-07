@@ -42,7 +42,7 @@ if __name__ == '__main__':
     participants = ["sylvia", "tine", "patrick", "celeste", "simon", "walter", "ann", "jan", "lieve"]
 
     # Create training dataset
-    testDataset = FootstepDataset(testPath, transform=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\STFTtest"))
+    testDataset = FootstepDataset(testPath, fExtractor=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\STFTtest"))
 
     # Create type of neural network
     network = NeuralNetworkSTFT(len(participants), testDataset.featureSize, nn.init.kaiming_uniform_)

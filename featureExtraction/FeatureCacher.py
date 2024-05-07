@@ -26,11 +26,16 @@ class FeatureCacher:
             os.makedirs(value)
         self._cachePath = value
 
-    def cache(self, result, cachePath):
+    @staticmethod
+    def cache(result, cachePath):
         torch.save(result, cachePath)
 
-    def load(self, filePathCache) -> torch.Tensor:
-        return torch.load(filePathCache)
+    @staticmethod
+    def load(filePathCache) -> tuple[torch.Tensor, int]:
+        loadedDict = torch.load(filePathCache)
+        filteredSignal = loadedDict["t"]
+        fs = loadedDict["f"]
+        return filteredSignal, fs
 
     def clearCache(self):
         if self.cachePath is not None:

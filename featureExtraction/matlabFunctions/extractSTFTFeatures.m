@@ -1,4 +1,4 @@
-function [stftSignal, f, t] = extractSTFTFeatures(values, fs, nFFT, bound, logScale, showOutput)
+function [stftSignal, fs, f, t] = extractSTFTFeatures(values, fs, nFFT, bound, logScale, showOutput)
     arguments
         values (1,:) double
         fs (1,1) int16
