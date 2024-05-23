@@ -35,9 +35,9 @@ def printDict(dict, logger: logging.Logger):
         str = f"{key:<10}: "
         for value in dict.get(key):
             if key == "Loss":
-                str += f"{value:.4f<5} "
+                str += f"{value:<5.4f} "
             else:
-                str += f"{value:.2f<5}% "
+                str += f"{value:<5.2f}% "
         logger.info(str)
 
 
