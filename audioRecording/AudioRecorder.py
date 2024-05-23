@@ -1,3 +1,4 @@
+import logging
 import os.path
 from pathlib import Path
 
@@ -7,18 +8,51 @@ from numpy import linspace
 from scipy.io.wavfile import write
 import time
 
+from CustomLogger import CustomLogger
 
-class Audiorecorder:
-    def __init__(self, baseLink: str, sampleRate: int, channels: int):
-        """
-       Initializes the Audiorecorder class. Sets the baseLink (the trainingPath where the audio files will be saved),
-       the sample rate (the number of samples per second), and the number of channels.
-       """
 
+class CustomAudioRecorder:
+    """
+        A custom audio recorder class for recording and saving audio data as .wav files.
+
+        Args:
+            baseLink (str): The base directory where audio files will be saved.
+            sampleRate (int): Sample rate in samples per second.
+            channels (int): Number of audio channels.
+            level (int, optional): Logging level (default is logging.DEBUG).
+
+        Attributes:
+            logger: Logger instance for debugging.
+            inputDevice: Default input audio device.
+            sampleRate (int): Sample rate in samples per second.
+            channels (int): Number of audio channels.
+            basePath (Path): Base directory for saving audio files.
+
+        Methods:
+            - record(duration: float, playBack: bool = False) -> numpy.ndarray:
+                Records audio for the specified duration.
+            - save(recording: numpy.ndarray, fileName: str = None) -> None:
+                Saves the recorded audio to a file.
+            - setInputDevice() -> None:
+                Sets the input audio device.
+            - setOutputDevice() -> None:
+                Sets the output audio device.
+            - continuousRecord(showImages: bool = False) -> None:
+                Continuously records audio with optional real-time visualization.
+
+        Example usage:
+            recorder = CustomAudioRecorder(baseLink="/path/to/save/audio", sampleRate=44100, channels=2)
+            recording = recorder.record(duration=5.0, playBack=True)
+            recorder.save(recording, fileName="my_audio")
+    """
+
+    def __init__(self, baseLink: str, sampleRate: int, channels: int, level: int = logging.DEBUG):
+        self.logger = CustomLogger.getLogger(__name__)
+        self.logger.setLevel(level)
         self.inputDevice = sd.default.device[0]
         self.sampleRate = sampleRate  # Sample rate (samples per second)
         self.channels = channels  # Channels
-        self.baseLink = Path(baseLink)
+        self.basePath = Path(baseLink)
 
     @property
     def sampleRate(self):
@@ -39,11 +73,11 @@ class Audiorecorder:
         sd.default.channels = channels
 
     @property
-    def baseLink(self):
+    def basePath(self):
         return self._baseLink
 
-    @baseLink.setter
-    def baseLink(self, link: Path):
+    @basePath.setter
+    def basePath(self, link: Path):
         if not link.is_dir():
             os.makedirs(link)
 
@@ -54,13 +88,13 @@ class Audiorecorder:
         Records audio for a specified duration. If `playBack` is set to `True`, it plays back the recorded audio after recording.
         """
         # Record audio
-        print("Recording started")
+        self.logger.debug("Recording started")
         recording = sd.rec(int(duration * self.sampleRate))
         sd.wait()  # Wait until recording is finished
-        print("Recording stopped")
+        self.logger.debug("Recording stopped")
 
         if playBack:
-            print("Playing back...")
+            self.logger.debug("Playing back...")
             sd.play(recording)
             sd.wait()
 
@@ -76,10 +110,10 @@ class Audiorecorder:
         fileName += ".wav"
 
         # Save in folder under given filename
-        path = self.baseLink.joinpath(fileName)
+        path = self.basePath.joinpath(fileName)
 
         write(path, self.sampleRate, recording)
-        print(f"Recording saved under '{path}'")
+        self.logger.debug(f"Recording saved under '{path}'")
 
     @staticmethod
     def setInputDevice():
@@ -130,7 +164,7 @@ if __name__ == '__main__':
     directory = input("In which directory will you save the files? (Don't forget to add '/' at the end): ")
     fs = input("What sampleRate do you use?: ")
     ch = input("How many channels do you use?: ")
-    recorder = Audiorecorder(directory, int(fs), int(ch))
+    recorder = CustomAudioRecorder(directory, int(fs), int(ch))
 
     recordNoise = input("Need to record Noise? (Y or N):")
     if recordNoise.capitalize() == "Y":

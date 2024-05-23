@@ -1,15 +1,14 @@
-import glob
-import math
 import os
-import random
-from pathlib import Path
-
 import numpy as np
 from matplotlib import pyplot as plt
 from numpy import linspace
 from scipy.io import wavfile
 
 from featureExtraction.FeatureExtractor import FeatureExtractor, FeatureExtractorTKEO, Filter
+
+"""
+Class to test out different filtering parameters
+"""
 
 
 def filterTest(extractor1: FeatureExtractor, path: str):
@@ -50,8 +49,8 @@ def extractorTest(extractor: FeatureExtractor, path: str):
             filteredSound = np.array(filteredSound)
             filteredSound = np.squeeze(filteredSound)
 
-            filteredFeatures = np.array(extractor.extract(filteredSound, fs))
-            features = np.array(extractor.extract(soundSignal, fs))
+            filteredFeatures = np.array(extractor.transform(filteredSound, fs))
+            features = np.array(extractor.transform(soundSignal, fs))
 
             plt.plot(time[0:len(features)], features, color="b", label="normal")
             plt.plot(time[0:len(filteredFeatures)], filteredFeatures, color="orange", label="filtered")

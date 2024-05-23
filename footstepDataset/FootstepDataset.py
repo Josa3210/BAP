@@ -1,11 +1,14 @@
 import glob
 import logging
+import math
 import os
 from pathlib import Path
+from typing import List
 
 import matlab.engine
 import numpy as np
 import torch
+from matplotlib import pyplot as plt
 from scipy.io import wavfile
 from torch.utils.data import Dataset, DataLoader
 
@@ -17,14 +20,70 @@ from featureExtraction.FeatureExtractor import FeatureExtractor, Filter, Feature
 from featureExtraction.Transforms import AddOffset
 
 
+def plotFuncs(signals, fs, title: str = None, block: bool = True):
+    time = np.linspace(0, 4, len(signals[0]))
+    fig, axs = plt.subplots(len(signals), 1)
+
+    for i in range(len(signals)):
+        axs[i].plot(time, signals[i])
+
+    if title is not None:
+        plt.suptitle(title)
+    plt.show(block=block)
+
+
 class FootstepDataset(Dataset):
-    def __init__(self, startPath: Path, fExtractor: FeatureExtractor = None, transformer: Transforms = None, cachePath: Path = None, labelFilter: list[str] = None):
+    """
+    Custom dataset for footstep data. This dataset reads in all the .wav file from a specified directory (dataSource) and convert it into a dataset.
+    The labels are the first part of the title separated by a "_"
+    The type of extracted feature is defined by the fExtractor given in the constructor.
+    Additionally, it is possible to add a transformation by adding a Transforms object
+    and add noise by specifying a non-zero natural number for addNoiseFactor.
+    This will add a normal distributed noise with std of the signal times the addNoiseFactor.
+
+    Args:
+        dataSource (Path): Path to the data source directory containing audio files.
+        fExtractor (FeatureExtractor, optional): Feature extractor. Defaults to None.
+        transformer (Transforms, optional): Data transformation. Defaults to None.
+        cachePath (Path, optional): Path for caching features. Defaults to None.
+        labelFilter (list[str], optional): Filter for specific labels. Defaults to None.
+        addNoiseFactor (float, optional): Noise factor. Defaults to 0.
+
+    Attributes:
+        featureExtractor (FeatureExtractor): The feature extractor used for signal processing.
+        transformer (Transforms): Data transformation (if provided).
+        logger (Logger): Logger for logging information.
+        cacher (FeatureCacher): Caching utility for storing filtered signals.
+        featureSize (tuple): Shape of the extracted features.
+        dataset (list): List of data samples, each containing a feature tensor and label.
+
+    Methods:
+        __init__(self, dataSource, fExtractor, transformer, cachePath, labelFilter, addNoiseFactor):
+            Initializes the dataset by extracting features from audio files.
+        __getitem__(self, index):
+            Retrieves an item from the dataset.
+        __len__(self):
+            Returns the number of samples in the dataset.
+
+    Example Usage:
+        # Create a dataset instance
+        dataset = FootstepDataset(dataSource=Path("path/to/data"), fExtractor=myFeatureExtractor)
+
+        # Access a sample
+        feature, label = dataset[0]
+    """
+
+    def __init__(self, dataSource: Path = None, fExtractor: FeatureExtractor = None, transformer: Transforms = None, cachePath: Path = None, labelFilter: list[str] = None, addNoiseFactor: float = 0):
         self.featureExtractor = fExtractor
         self.transformer = transformer
         self.logger = CustomLogger.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
         if fExtractor is None:
             self.featureExtractor = Filter()
+
+        self.addNoiseFactor = addNoiseFactor
+        self.SNR = []
+        self.maxVal = 0
 
         self.cacher = FeatureCacher()
         if cachePath is not None:
@@ -38,37 +97,48 @@ class FootstepDataset(Dataset):
         self.dataset = []
         self.labelFilter = labelFilter
 
-        generator = self.extractDirectory(startPath=startPath)
-        # Convert every file into a signal and labels
-        while True:
-            try:
-                # Get all the extracted features and labels in string form
-                signal, labelName = next(generator)
+        if dataSource is not None:
+            generator = self.extractDirectory(startPath=dataSource)
 
-                if labelName not in self.labelStrings:
-                    self.labelStrings.append(labelName)
+            # Convert every file into a signal and labels
+            while True:
+                try:
+                    # Get all the extracted features and labels in string form
+                    signal, labelName = next(generator)
 
-                target = self.labelStrings.index(labelName)
-                target = torch.tensor(target)
-                labelArray.append(target)
+                    if labelName not in self.labelStrings:
+                        self.labelStrings.append(labelName)
 
-                # Append the acquired data to the array
-                dataArray.append(signal)
-            except StopIteration:
-                dataArray = np.array(dataArray).squeeze().astype('float32')
-                maxVal = np.max(dataArray)
-                dataArray /= maxVal
-                self.dataset = [[x, y] for x, y in zip(dataArray, labelArray)]
-                self.featureSize = dataArray.shape[1:]
-                break
+                    target = self.labelStrings.index(labelName)
+                    target = torch.tensor(target)
+                    labelArray.append(target)
+
+                    # Append the acquired data to the array
+                    dataArray.append(signal)
+                except StopIteration:
+                    dataArray = np.array(dataArray).squeeze().astype('float32')
+                    self.maxVal = np.max(dataArray)
+                    dataArray /= self.maxVal
+                    self.dataset = [[x, y] for x, y in zip(dataArray, labelArray)]
+                    self.featureSize = dataArray.shape[1:]
+                    self.featureExtractor.shutdown()
+                    break
 
     def __getitem__(self, index):
         row = self.dataset[index]
         return row[0], row[1]
 
-        # Extract all the .wav files and convert them into a readable file
-
     def extractDirectory(self, startPath: Path):
+        """
+            Extract features from audio files in the specified directory.
+
+            Args:
+                startPath (Path): Path to the directory containing audio files.
+
+            Yields:
+                tuple: Tuple containing the extracted feature tensor and label.
+        """
+        self.featureExtractor.start()
         searchPath = str(startPath) + r"\**\*.wav"
         for fileName in glob.glob(pathname=searchPath, recursive=True):
 
@@ -84,37 +154,43 @@ class FootstepDataset(Dataset):
 
             # Check if there is a cached version of the filtered sound
             cachePath = self.cacher.getCachePath(filePath)
-            if os.path.exists(cachePath) and self.transformer is None:
+
+            if os.path.exists(cachePath) and self.addNoiseFactor == 0:
                 # Read data from cache file
-
-
+                filteredSignal, fs = self.cacher.load(cachePath)
                 self.logger.debug(f"Reading from {cachePath}")
 
             else:
                 # Read wav file
                 fs, signal = wavfile.read(filePath)
 
+                if self.addNoiseFactor != 0:
+                    varNoise = np.var(signal) * self.addNoiseFactor
+                    signal = signal + np.random.normal(0, np.sqrt(varNoise), len(signal))
+                    varSignal = np.var(signal)
+                    SNR = 20*math.log10(varSignal/varNoise)
+                    self.SNR.append(SNR)
                 # Filter the result
-                filteredSignal, SNR = self.featureExtractor.filter(signal, fs)
+                filteredSignal = self.featureExtractor.filter(signal, fs)
 
-                # Create a cache file for future extraction
-                self.cacher.cache({"t": filteredSignal, "f": fs}, cachePath)
-                self.logger.debug(f"Reading from {filePath}")
+                if self.addNoiseFactor == 0:
+                    # Create a cache file for future extraction
+                    self.cacher.cache({"t": filteredSignal, "f": fs}, cachePath)
+                    self.logger.debug(f"Reading from {filePath}")
 
             if self.transformer is not None:
                 transformGen = self.transformer.transform(filteredSignal, fs)
                 for j in range(self.transformer.amount):
-                    transformedSignal = next(transformGen)[0]
-
+                    transformedSignal = next(transformGen)
                     # Send data to Matlab and receive the transformed signal
-                    result, newFS = self.featureExtractor.extract(transformedSignal, fs)
+                    result = self.featureExtractor.transform(transformedSignal, fs)
 
                     # Convert to tensor and flatten to remove 1 dimension
                     torchResult = torch.Tensor(result)
                     yield torchResult, label
             else:
                 # Send data to Matlab and receive the transformed signal
-                result, newFS = self.featureExtractor.extract(filteredSignal, fs)
+                result = self.featureExtractor.transform(filteredSignal, fs)
 
                 # Convert to tensor and flatten to remove 1 dimension
                 torchResult = torch.Tensor(result)
@@ -125,23 +201,20 @@ class FootstepDataset(Dataset):
 
 
 if __name__ == '__main__':
-    engine = matlab.engine.start_matlab()
-    filterExtr = FeatureExtractorTKEO(engine=engine)
-    transformer = AddOffset(engine=engine, amount=5)
+    filterExtr = Filter()
+    transformer = AddOffset(amount=2)
 
     noiseProfilePath = utils.getDataRoot().joinpath(r"noiseProfile\noiseProfile1.wav")
     recordingsPath = utils.getDataRoot().joinpath("recordings")
     testCachePath: Path = utils.getDataRoot().joinpath(r"cache\TKEO")
-    offsetAdder = AddOffset(5, maxTimeOffset=0.5)
+    # offsetAdder = AddOffset(2, maxTimeOffset=0.5)
     filterExtr.noiseProfile = noiseProfilePath
-    datasetTransformed: FootstepDataset = FootstepDataset(recordingsPath, fExtractor=filterExtr, transformer=transformer, cachePath=testCachePath)
-    datasetNormal: FootstepDataset = FootstepDataset(recordingsPath, fExtractor=filterExtr, cachePath=testCachePath)
+    personFilter = ["ann","Lieve"]
+    datasetTransformed: FootstepDataset = FootstepDataset(recordingsPath, labelFilter=personFilter, fExtractor=filterExtr, transformer=transformer, cachePath=testCachePath, addNoiseFactor=0)
 
     print(len(datasetTransformed.dataset))
-    print(len(datasetNormal.dataset))
 
-    dataloaderTransformed = DataLoader(datasetTransformed, batch_size=32)
-    dataloaderNormal = DataLoader(datasetNormal, batch_size=32)
+    dataloaderTransformed = DataLoader(datasetTransformed, batch_size=4)
 
-    for i, batch in enumerate(dataloaderTransformed):
-        print(batch.size())
+    trainingFeatures, trainingLabels = next(iter(dataloaderTransformed))
+    plotFuncs(np.array(trainingFeatures), 44100, "Batch")

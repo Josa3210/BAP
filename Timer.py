@@ -2,6 +2,9 @@ import time
 
 
 class Timer:
+    """
+    A classic timer class used for timing how long training and testing of the different models took.
+    """
     def __init__(self):
         self.start_time = None
         self.end_time = None

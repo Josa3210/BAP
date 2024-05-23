@@ -1,13 +1,17 @@
 import logging
+
 import numpy as np
+import torch
 from matplotlib import pyplot as plt
 from sklearn.metrics import ConfusionMatrixDisplay
 from torch import nn
 
-from NeuralNetwork.NeuralNetworks import NeuralNetworkTKEO, NeuralNetworkTKEO2, NeuralNetworkSTFT
+import utils
 from CustomLogger import CustomLogger
+from NeuralNetwork.EarlyStopper import EarlyStopper
+from NeuralNetwork.NeuralNetworks import NeuralNetworkSTFT, NeuralNetworkTKEO2, NeuralNetworkTKEO
 from Timer import Timer
-from featureExtraction.FeatureExtractor import FeatureExtractorTKEO, FeatureExtractorSTFT
+from featureExtraction.FeatureExtractor import FeatureExtractorSTFT, FeatureExtractorTKEO
 from featureExtraction.Transforms import AddOffset
 from footstepDataset.FootstepDataset import FootstepDataset
 from utils import getDataRoot
@@ -49,8 +53,7 @@ if __name__ == '__main__':
     timer = Timer()
 
     # Define the path to the different data files
-    trainingPath = getDataRoot().joinpath("recordings")
-    testPath = getDataRoot().joinpath("testData")
+    trainingPath = getDataRoot().joinpath("trainingData")
     noisePath = getDataRoot().joinpath(r"noiseProfile\noiseProfile2.wav")
 
     # Define the type of data and add noise profile for filtering
@@ -58,7 +61,7 @@ if __name__ == '__main__':
     filterExtr.noiseProfile = noisePath
 
     # Add a transformation to the data for more datapoints
-    transformer = AddOffset(amount=5, maxTimeOffset=1)
+    transformer = AddOffset(amount=10, maxTimeOffset=1)
 
     # Choose the participants from which the data will be used
     participants = ["sylvia", "tine", "patrick", "celeste", "simon", "walter", "ann", "jan", "lieve"]
@@ -69,13 +72,15 @@ if __name__ == '__main__':
     # Create type of neural network
     network = NeuralNetworkSTFT(len(participants), trainingDataset.featureSize, nn.init.kaiming_uniform_)
 
+    earlyStopper = EarlyStopper(network=network, amount=10, delta=0.01)
+
     # Set training parameters
-    nTrainings = 3
+    nTrainings = 1
     batchSize = 32
-    learningRate = 0.001
+    learningRate = 0.01
     network.dropoutRate = 0.2
-    folds = 1
-    epochs = 150
+    folds = 5
+    epochs = 200
 
     # Initialise variables
     trainingResults = []
@@ -85,8 +90,9 @@ if __name__ == '__main__':
 
     bestResult = 0
     bestConfMat = None
-    id = 2
+    id = 8
 
+    logger.info(network.dropoutRate)
     # Start training
     logger.info(f"Start training for {nTrainings} trainings")
     logger.info(f"Amount of data: {len(trainingDataset.dataset)}")
@@ -106,16 +112,17 @@ if __name__ == '__main__':
         logger.info("=" * 30)
 
         if max(validationResults["Accuracy"]) > bestResult:
-            network.saveModel(name="BestFromBatch", idNr=id)
+            network.saveModel(maxVal= network.maxVal, name="BestFromBatch", idNr=id)
             bestResult = max(validationResults["Accuracy"])
             bestConfMat = confMat
 
     timer.stop()
     logger.info(f"Finished training in {timer.get_elapsed_time() // 60} minutes {round(timer.get_elapsed_time() % 60)} seconds")
-
+    """
     valLossPerFold = np.array(valLossPerFold)
     trainLossPerFold = np.array(trainLossPerFold)
     fig, axs = plt.subplots(1, nTrainings, sharex=True, sharey=True)
+
     for j in range(nTrainings):
         trainMeanLoss = trainLossPerFold[j].mean(axis=0)
         valMeanLoss = valLossPerFold[j].mean(axis=0)
@@ -124,7 +131,7 @@ if __name__ == '__main__':
     fig.suptitle("Average loss per epoch", fontsize=25)
     fig.supxlabel("Epochs")
     fig.supylabel("Average loss")
-
+    """
     logger.info(f"\nRESULT OF {nTrainings} TRAININGS")
     logger.info("=" * 30)
     logger.info("Validation loss")
@@ -134,9 +141,16 @@ if __name__ == '__main__':
     logger.info(f"Maximum:\t{np.max(trainingAccuracy):.2f}%")
     logger.info(f"Minimum:\t{np.min(trainingAccuracy):.2f}%")
     logger.info(f"Variance:\t{np.std(trainingAccuracy):.2f}%")
-    logger.info("-" * 30)
+    logger.info("-" * 30)   
 
-    disp = ConfusionMatrixDisplay(confusion_matrix=bestConfMat, display_labels=trainingDataset.labelStrings)
+    loadedDict = torch.load(network.savePath.joinpath(f"{network.name}-BestFromBatch-{id}.pth"))
+    logger.info(loadedDict["maxVal"])
+
+    confMatAx = plt.subplot()
+    confMatAx.set_xlabel('Predicted labels', fontsize=18)
+    confMatAx.set_ylabel('True labels', fontsize=18)
+    disp = ConfusionMatrixDisplay(confusion_matrix=bestConfMat).plot(colorbar=False, ax=confMatAx)
+    plt.savefig(str(utils.getDataRoot().joinpath(f"Figures/ConfMat_train{network.name}.png")))
     disp.plot()
 
     plt.show()

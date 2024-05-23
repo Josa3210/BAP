@@ -8,57 +8,79 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import torch
 from bayes_opt import BayesianOptimization
+from scipy.io import wavfile
 from sklearn import metrics
-from sklearn.metrics import confusion_matrix, accuracy_score
+from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import KFold
 from torch import nn, device, Tensor
 from torch.utils.data import Dataset, SubsetRandomSampler, DataLoader, random_split
+
 import utils
 from CustomLogger import CustomLogger
+from NeuralNetwork.EarlyStopper import EarlyStopper
 
 
 class InterfaceNN(nn.Module):
-    @abstractmethod
-    def __init__(self, name: str, initMethod: nn.init = nn.init.xavier_normal_):
+    """
+    Abstract base class for neural network interfaces. Adds possibility to save and load models and get the current device
+
+    Args:
+        name (str): The name of the interface.
+
+    Attributes:
+        device: The device (CPU or CUDA) on which the model runs.
+        savePath: The path where model checkpoints will be saved.
+        _name (str): The name of the interface.
+
+    Methods:
+        forward(x: Tensor) -> None:
+            Abstract method for forward pass computation.
+        saveModel(path: Path = None, name: str = None, idNr: int = None) -> None:
+            Saves the model's state dictionary to a file.
+        loadModel(path: Path) -> bool:
+            Loads a model state dictionary from a file.
+        printWeights() -> None:
+            Prints weights of convolutional layers (for debugging).
+
+    Properties:
+        savePath: The save path for model checkpoints.
+    """
+
+    def __init__(self, name: str):
         super().__init__()
-        self.logger = CustomLogger.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG)
-
         self.device = self.getDevice()
-        self.lossFunction = nn.CrossEntropyLoss()
-
-        self.validationConfMat = None
-        self.trainingLossesPerFold = []
-        self.validationLossesPerFold = []
-
-        self.trainingData = None
-        self.testData = None
-
-        self.initMethod = initMethod
-        self.dropoutRate = 0.2
-
         self.savePath = utils.getDataRoot().joinpath("model")
-        self._name = name
+        self.name = name
+        self.fExtractor = None
+        self.maxVal = None
 
     @abstractmethod
     def forward(self, x: Tensor):
         pass
 
     @property
-    def bestLR(self):
-        return self._bestLR
+    def name(self):
+        return self._name
 
-    @bestLR.setter
-    def bestLR(self, value):
-        self.bestLR = value
+    @name.setter
+    def name(self, value):
+        self._name = value
 
     @property
-    def dropoutRate(self):
-        return self._dropoutRate
+    def fExtractor(self):
+        return self._fExtractor
 
-    @dropoutRate.setter
-    def dropoutRate(self, value):
-        self._dropoutRate = value
+    @fExtractor.setter
+    def fExtractor(self, value):
+        self._fExtractor = value
+
+    @property
+    def maxVal(self):
+        return self._maxVal
+
+    @maxVal.setter
+    def maxVal(self, value):
+        self._maxVal = value
 
     @property
     def savePath(self):
@@ -70,6 +92,163 @@ class InterfaceNN(nn.Module):
             os.makedirs(value)
         self._savePath = value
 
+    @staticmethod
+    def getDevice():
+        return device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+    def saveModel(self, maxVal: int, path: Path = None, name: str = None, idNr: int = None):
+        # Add different tags to the filename
+        fileName = self._name
+        if name is not None:
+            fileName += "-" + name
+        if idNr is not None:
+            fileName += "-" + str(idNr)
+        if path is None:
+            path = self.savePath
+
+        if not path.exists():
+            os.makedirs(path)
+
+        # Next to the state_dict of the model, also the maximum value used for normalization of the trainingDataset must be saved
+        # to normalize new samples
+        saveDict = {
+            "stateDict": self.state_dict(),
+            "maxVal": maxVal
+        }
+
+        # Save the file
+        torch.save(saveDict, path.joinpath(fileName + ".pth"))
+
+    def loadModel(self, path: Path) -> bool:
+        """
+        Load the saved dictionary from path.
+        Then set the networks state_dict to the one loaded in from the path.
+        Also, set the maxVal to the value from the dataset used wile training
+        :param path: path of where the saved file is
+        :type path: Path
+        :return: if the loading of the model is done successfully
+        :rtype: bool
+        """
+        if not path.exists():
+            return False
+
+        loadDict = torch.load(path, map_location=self.device)
+        stateDict = loadDict["stateDict"]
+        self.maxVal = loadDict["maxVal"]
+        self.load_state_dict(stateDict)
+        return True
+
+    def transformSample(self, sample: Path | tuple[list[float], int]) -> list[float] | None:
+        """
+        Convert a raw recording sample into a sample that can be read by the network.
+        :param sample: The path to the sample, or the sample itself with also the sampling rate in a list
+        """
+        if isinstance(sample, Path):
+            if sample.exists():
+                signal, fs = wavfile.read(sample)
+            else:
+                self.logger.error(f"Path to sample does not exist: {sample}")
+        elif isinstance(sample, tuple):
+            signal = sample[0]
+            fs = sample[1]
+        else:
+            self.logger.error(f"Sample is not right type. Expected Path or tuple[list[float], given {type(sample)}")
+            return None
+
+        # Filter the sample
+        filteredSignal = self.featureExtractor.filter(signal, fs)
+
+        # Transform the sample
+        transformedSignal = self.featureExtractor.transform(filteredSignal, fs)
+
+        # Normalize the sample
+        transformedSignal /= self.maxVal
+
+        return transformedSignal
+
+    def predictSample(self, sample: Path | tuple[list[float], int]):
+        feature = self.transformSample(sample)
+        featureT = torch.Tensor(feature).unsqueeze(0)   # Need to add an extra dimension as if it was a batch with size 1
+        result = self.forward(featureT)
+        return result
+
+
+class TrainableNN(InterfaceNN):
+    """
+    Abstract base class for trainable neural networks. This class implements methods trainOnData and testOnData plus other useful static functions.
+    These extra functions all help with training the network.
+
+    Args:
+        name (str): The name of the interface.
+        initMethod (nn.init, optional): The weight initialization method (default: nn.init.xavier_normal_).
+
+    Attributes:
+        device: The device (CPU or CUDA) on which the model runs.
+        savePath: The path where model checkpoints will be saved.
+        _name (str): The name of the interface.
+        lossFunction: The loss function used for training.
+        dropoutRate: The dropout rate for regularization.
+        validationConfMat: The confusion matrix for validation.
+        trainingLossesPerFold: List of training losses per fold (for cross-validation).
+        validationLossesPerFold: List of validation losses per fold (for cross-validation).
+        trainingData: Training data (if applicable).
+        testData: Test data (if applicable).
+        initMethod: The weight initialization method.
+
+    Methods:
+        forward(x: Tensor) -> None:
+            Abstract method for forward pass computation.
+        saveModel(path: Path = None, name: str = None, idNr: int = None) -> None:
+            Saves the model's state dictionary to a file.
+        loadModel(path: Path) -> bool:
+            Loads a model state dictionary from a file.
+        printWeights() -> None:
+            Prints weights of convolutional layers (for debugging).
+        initWeights(m: nn.Module) -> None:
+            Initializes weights using the specified method.
+        initWeightsZero(m: nn.Module) -> None:
+            Initializes weights to zero.
+        calcSizeConv(inputSize: int, filterSize: int, stride: int = 1, padding: int = 0) -> int:
+            Calculates output size after a convolutional layer.
+        calcSizePool(inputSize: int, filterSize: int, stride: int, dilation: int = 1, padding: int = 0) -> int:
+            Calculates output size after a pooling layer.
+        trainOnData(trainingData: Dataset = None, folds: int = None, epochs: int = None, batchSize: int = None,
+                    lr: float = None, dr: float = None, verbose: bool = False, saveModel: bool = False):
+            Trains the model and returns results of the best training iteration.
+        testOnData(testData: Dataset, batchSize: int = 32):
+            Test the given data on the network.
+        optimizeParams(bounds: dict[str, tuple[float, float]], trainingData: Dataset = None,
+                    init_points: int = 5, n_iter: int = 25):
+
+
+    """
+
+    @abstractmethod
+    def __init__(self, name: str, initMethod: nn.init = nn.init.xavier_normal_):
+        super().__init__(name)
+        self.logger = CustomLogger.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG)
+
+        self.lossFunction = nn.CrossEntropyLoss()
+        self.dropoutRate = 0
+
+        self.validationConfMat = None
+        self.trainingLossesPerFold = []
+        self.validationLossesPerFold = []
+
+        self.trainingData = None
+        self.testData = None
+
+        self.initMethod = initMethod
+
+    @property
+    def dropoutRate(self):
+        return self._dropoutRate
+
+    @dropoutRate.setter
+    def dropoutRate(self, value):
+        self._dropoutRate = value
+
     @property
     def trainingData(self):
         return self._trainingData
@@ -77,10 +256,6 @@ class InterfaceNN(nn.Module):
     @trainingData.setter
     def trainingData(self, data):
         self._trainingData = data
-
-    @staticmethod
-    def getDevice():
-        return device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     def initWeights(self, m):
         if isinstance(m, nn.Linear) or isinstance(m, nn.Conv1d):
@@ -109,7 +284,8 @@ class InterfaceNN(nn.Module):
                     lr: float = None,
                     dr: float = None,
                     verbose: bool = False,
-                    saveModel: bool = False):
+                    saveModel: bool = False,
+                    earlyStopper: EarlyStopper = None):
 
         # Initialize parameters
         if trainingData is not None:
@@ -119,7 +295,7 @@ class InterfaceNN(nn.Module):
 
         # Check if there is data
         if self.trainingData is None:
-            self.logger.error("Define trainingdata using network.setTrainingData()")
+            self.logger.error("Define trainingdata using network.setTrainingData(trainingDataLoader)")
             return None
 
         # Set verbose level
@@ -132,9 +308,11 @@ class InterfaceNN(nn.Module):
         self.logger.debug("Start training network")
 
         # Check for folds, if folds = 1 -> choose 80% of data for training and 20% for validation
+        kFold = None
         if folds > 1:
             kFold = KFold(n_splits=folds, shuffle=True)
 
+        # Initialize values for capturing performance
         bestResult = math.inf
         self.trainingLossesPerFold = []
         self.validationLossesPerFold = []
@@ -145,8 +323,11 @@ class InterfaceNN(nn.Module):
             # Reset weights
             self.apply(self.initWeights)
 
+            # If there are folds, get the ids of the training and validation samples
+            # Put them in a dataloader
             if folds > 1:
                 train_ids, validation_ids = next(kFold.split(self.trainingData))
+
                 # Sample elements randomly from a given list of ids, no replacement.
                 trainSubSampler = SubsetRandomSampler(train_ids)
                 validationSubSampler = SubsetRandomSampler(validation_ids)
@@ -160,10 +341,13 @@ class InterfaceNN(nn.Module):
                     self.trainingData,
                     batch_size=batchSize,
                     sampler=validationSubSampler)
+
             else:
+                # Choose random 80% of data and put as trainingdata, other part is validation
                 trainSize = round(len(self.trainingData) * 0.8)
                 validationSize = len(self.trainingData) - trainSize
                 trainDataset, validationDataset = random_split(self.trainingData, (trainSize, validationSize))
+
                 # Define data loaders for training and testing data in this fold
                 trainLoader = DataLoader(
                     trainDataset,
@@ -180,8 +364,14 @@ class InterfaceNN(nn.Module):
 
             # Get the network to the right device
             self.to(self.device)
-            optimizer: torch.optim.Optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
+            # Create optimizer and add learning rate
+            optimizer: torch.optim.Optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+            if earlyStopper is not None:
+                earlyStopper.reset()
+            mustStop: bool = False
+
+            # Initialize values for capturing performance
             trainingLossPerEpoch = []
             validationLossPerEpoch = []
             avgValidationLoss = 0
@@ -197,8 +387,8 @@ class InterfaceNN(nn.Module):
                 confMatPred, confMatTarget = [], []
 
                 # Set current loss value
-                currentTrainingLoss = 0.
-                currentValidationLoss = 0.
+                cumulativeTrainingLoss = 0.
+                cumulativeValidationLoss = 0.
 
                 # Iterate over the DataLoader for training data
                 for i, batch in enumerate(trainLoader):
@@ -223,9 +413,10 @@ class InterfaceNN(nn.Module):
                     optimizer.step()
 
                     # Print statistics
-                    currentTrainingLoss += loss.item()
+                    cumulativeTrainingLoss += loss.item()
 
-                avgTrainingLoss = currentTrainingLoss / len(trainLoader)
+                # Calculate average training loss of this epoch
+                avgTrainingLoss = cumulativeTrainingLoss / len(trainLoader)
                 self.logger.debug(f"Average training loss: {avgTrainingLoss}")
 
                 with torch.no_grad():
@@ -243,16 +434,29 @@ class InterfaceNN(nn.Module):
                         # Set total and correct
                         _, predicted = torch.max(outputs.data, 1)
 
+                        # Calculate loss and add to total loss
                         loss = self.lossFunction(outputs, targets)
-                        currentValidationLoss += loss.item()
+                        cumulativeValidationLoss += loss.item()
 
                         confMatPred.extend(predicted.data.cpu().numpy())
                         confMatTarget.extend(targets.data.cpu().numpy())
 
-                avgValidationLoss = currentValidationLoss / len(validationLoader)
+                avgValidationLoss = cumulativeValidationLoss / len(validationLoader)
+                self.logger.debug(f"Average validation loss: {avgValidationLoss}")
 
                 trainingLossPerEpoch.append(avgTrainingLoss)
                 validationLossPerEpoch.append(avgValidationLoss)
+
+                if earlyStopper is not None:
+                    mustStop = earlyStopper.evaluate(currentLoss=avgValidationLoss, confMatTarget=confMatTarget, confMatPred=confMatPred)
+
+                if mustStop:
+                    avgValidationLoss = earlyStopper.lowestLoss
+                    self.load_state_dict(earlyStopper.stateDict)
+                    confMatTarget = earlyStopper.confMatTarget
+                    confMatPred = earlyStopper.confMatPred
+                    self.logger.info(f"Stopped early at epoch {epoch} with loss of {avgValidationLoss}")
+                    break
 
             # Evaluation for this fold
             self.logger.debug('-' * 30)
@@ -261,7 +465,7 @@ class InterfaceNN(nn.Module):
             if avgValidationLoss < bestResult:
                 bestConfMat: confusion_matrix = confusion_matrix(y_true=confMatTarget, y_pred=confMatPred)
                 bestResult = avgValidationLoss
-                if saveModel: self.saveModel(self.savePath, "BestResult")
+                if saveModel: self.saveModel(self.maxVal, self.savePath, "BestResult")
 
             # Add current results to dictionary
             validationResults["Loss"].append(avgValidationLoss)
@@ -276,6 +480,9 @@ class InterfaceNN(nn.Module):
             self.loadModel(self.savePath.joinpath(self._name + "-" + "BestResult.pth"))
         return validationResults, bestConfMat
 
+    def getName(self):
+        return self._name
+
     def testOnData(self,
                    testData: Dataset,
                    batchSize: int = 32):
@@ -286,7 +493,7 @@ class InterfaceNN(nn.Module):
 
         # Check if there is data
         if self.testData is None:
-            self.logger.info("Define trainingdata using network.setTrainingData()")
+            self.logger.info("Define trainingdata using network.setTestData(testDataLoader)")
             return None
 
         self.to(self.device)
@@ -380,44 +587,6 @@ class InterfaceNN(nn.Module):
         result, confMat = self.trainOnData(folds=1, epochs=epochs, lr=lr, dr=dr, batchSize=32, saveModel=False)
         return - (sum(result["Loss"]) / len(result["Loss"]))
 
-    def saveModel(self, path: Path = None, name: str = None, idNr: int = None):
-        fileName = self._name
-        if name is not None:
-            fileName += "-" + name
-        if idNr is not None:
-            fileName += "-" + str(idNr)
-        if path is None:
-            path = self.savePath
-
-        if not path.exists():
-            os.makedirs(path)
-
-        torch.save(self.state_dict(), path.joinpath(fileName + ".pth"))
-
-    def loadModel(self, path: Path):
-        self.logger.info(f"Trying to download model from {path}")
-
-        if not path.exists():
-            self.logger.warning("Path does not exist")
-            return
-
-        self.load_state_dict(torch.load(path, map_location=self.device))
-        self.logger.info("Successfully downloaded model")
-        # Print model's state_dict
-        # print("Model's state_dict:")
-        # for param_tensor in self.state_dict():
-        #    print(param_tensor, "\t", self.state_dict()[param_tensor].size())
-
-    def printWeights(self):
-        self.logger.info("PRINTING WEIGHTS:")
-        self.logger.info("=" * 30)
-        self.logger.info('\n')
-        for layer in self.children():
-            for subLayers in layer.children():
-                if isinstance(subLayers, nn.Conv1d):
-                    self.logger.info(f"Weights of layer {subLayers}")
-                    self.logger.info(subLayers.weight)
-
     def printLoss(self):
         folds = len(self.trainingLossesPerFold)
         if folds > 1:
@@ -438,7 +607,7 @@ class InterfaceNN(nn.Module):
 
         plt.show()
 
-    def printResults(self, results,testResult: bool = False, fullReport: bool = False):
+    def printResults(self, results, testResult: bool = False, fullReport: bool = False):
         if testResult:
             typeResults = "Test"
         else:
