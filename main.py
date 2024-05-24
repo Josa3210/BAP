@@ -23,9 +23,10 @@ if __name__ == '__main__':
     path = utils.getDataRoot().joinpath("recordings")
     filterExtr = FeatureExtractorSTFT()
     filterExtr.noiseProfile = path.joinpath(r"..\noiseProfile\noiseProfile2.wav")
-    participants = ["ann", "celeste", "jan", "patrick"]#, "simon", "sylvia", "tine", "walter"]
-    transformer = AddOffset(amount=10,maxTimeOffset=2)
-    dataset = FootstepDataset(path, fExtractor=filterExtr, labelFilter=participants, cachePath=utils.getDataRoot().joinpath(r"cache\TKEO"), transformer=transformer)
+    participants = ["ann", "celeste", "jan", "patrick", "simon", "sylvia", "tine", "walter", "Lieve"]
+    #transformer = AddOffset(amount=10,maxTimeOffset=2)
+    dataset = FootstepDataset(path, fExtractor=filterExtr, labelFilter=participants, cachePath=utils.getDataRoot().joinpath(r"cache\TKEO"))
+    print(f"Amount of samples: {len(dataset.dataset)}")
     labels = dataset.labelStrings
     batchSize = 4
     dataloader = DataLoader(dataset, batch_size=batchSize, shuffle=True)

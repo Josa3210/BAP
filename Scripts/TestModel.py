@@ -34,22 +34,22 @@ if __name__ == '__main__':
 
     # Define the path to the different data files
     testPath = getDataRoot().joinpath("testData")
-    noisePath = getDataRoot().joinpath(r"noiseProfile\noiseProfile1.wav")
+    noisePath = getDataRoot().joinpath(r"noiseProfile\noiseProfile2.wav")
 
     # Define the type of data and add noise profile for filtering
-    featureExtractor = FeatureExtractorTKEO()
+    featureExtractor = FeatureExtractorSTFT()
     featureExtractor.noiseProfile = noisePath
 
     # Define the type of transformation on the data
-    transformer = AddOffset(amount=10, maxTimeOffset=2)
+    transformer = AddOffset(amount=10, maxTimeOffset=1)
 
     # Choose the participants from which the data will be used
-    participants = ["sylvia", "tine", "patrick", "celeste", "simon", "walter", "ann", "jan", "lieve"]
+    participants = ["sylvia", "tine", "patrick", "celeste", "simon", "walter", "ann", "jan", "Lieve"]
 
     testDataset = FootstepDataset(testPath, fExtractor=featureExtractor, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache/TKEO"), transformer=transformer)
     # Create type of neural network
-    network = NeuralNetworkTKEO2(len(participants), testDataset.featureSize, nn.init.kaiming_uniform_)
-    network.loadModel(getDataRoot().joinpath(f"model/{network.name}-BestFromBatch-7.pth"))
+    network = NeuralNetworkSTFT(len(participants), testDataset.featureSize, nn.init.kaiming_uniform_)
+    network.loadModel(getDataRoot().joinpath(f"model/{network.name}-BestFromBatch-8.pth"))
     network.fExtractor = featureExtractor
 
     # Set training parameters
@@ -101,7 +101,7 @@ if __name__ == '__main__':
         confMatAx.set_xlabel('Predicted labels', fontsize=18)
         confMatAx.set_ylabel('True labels', fontsize=18)
         disp = ConfusionMatrixDisplay(confusion_matrix=confMat).plot(colorbar=False, ax=confMatAx)
-        plt.savefig(str(utils.getDataRoot().joinpath(f"Figures/ConfMat_test_SNR{round(avgSNR * 100)}.png")))
+        plt.savefig(str(utils.getDataRoot().joinpath(f"Figures/ConfMat_test_{network.name}_SNR{round(avgSNR * 100)}.png")))
         plt.close()
 
     # After all the testing, we print out the different losses and accuracies over the averageSNR of that test loop

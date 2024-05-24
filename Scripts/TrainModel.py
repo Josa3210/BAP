@@ -9,9 +9,9 @@ from torch import nn
 import utils
 from CustomLogger import CustomLogger
 from NeuralNetwork.EarlyStopper import EarlyStopper
-from NeuralNetwork.NeuralNetworks import NeuralNetworkSTFT, NeuralNetworkTKEO2, NeuralNetworkTKEO
+from NeuralNetwork.NeuralNetworks import NeuralNetworkTKEO2, NeuralNetworkSTFT
 from Timer import Timer
-from featureExtraction.FeatureExtractor import FeatureExtractorSTFT, FeatureExtractorTKEO
+from featureExtraction.FeatureExtractor import FeatureExtractorTKEO, FeatureExtractorSTFT
 from featureExtraction.Transforms import AddOffset
 from footstepDataset.FootstepDataset import FootstepDataset
 from utils import getDataRoot
@@ -64,23 +64,31 @@ if __name__ == '__main__':
     transformer = AddOffset(amount=10, maxTimeOffset=1)
 
     # Choose the participants from which the data will be used
-    participants = ["sylvia", "tine", "patrick", "celeste", "simon", "walter", "ann", "jan", "lieve"]
+    participants = ["sylvia", "tine", "patrick", "celeste", "simon", "walter", "ann", "jan", "Lieve"]
 
     # Create training dataset
     trainingDataset = FootstepDataset(trainingPath, fExtractor=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEO"), transformer=transformer)
 
     # Create type of neural network
     network = NeuralNetworkSTFT(len(participants), trainingDataset.featureSize, nn.init.kaiming_uniform_)
+    network.dropoutRate = 0.2
+    network.maxVal = trainingDataset.maxVal
 
-    earlyStopper = EarlyStopper(network=network, amount=10, delta=0.01)
+    #bounds = {"lr": (0.0005, 0.005)}
+    #timer.start()
+    #result = network.optimizeParams(bounds=bounds, trainingData=trainingDataset)
+    #timer.stop()
+    #logger.info(f"Finished optimizing in {timer.get_elapsed_time() // 60} minutes {round(timer.get_elapsed_time() % 60)} seconds")
+
+    earlyStopper = EarlyStopper(network=network, amount=10, delta=0.1)
 
     # Set training parameters
-    nTrainings = 1
+    nTrainings = 10
     batchSize = 32
-    learningRate = 0.01
-    network.dropoutRate = 0.2
+    #learningRate = result["lr"]
+    learningRate = 0.001
     folds = 5
-    epochs = 200
+    epochs = 20
 
     # Initialise variables
     trainingResults = []
@@ -112,7 +120,7 @@ if __name__ == '__main__':
         logger.info("=" * 30)
 
         if max(validationResults["Accuracy"]) > bestResult:
-            network.saveModel(maxVal= network.maxVal, name="BestFromBatch", idNr=id)
+            network.saveModel(maxVal=network.maxVal, name="BestFromBatch", idNr=id)
             bestResult = max(validationResults["Accuracy"])
             bestConfMat = confMat
 
@@ -141,16 +149,18 @@ if __name__ == '__main__':
     logger.info(f"Maximum:\t{np.max(trainingAccuracy):.2f}%")
     logger.info(f"Minimum:\t{np.min(trainingAccuracy):.2f}%")
     logger.info(f"Variance:\t{np.std(trainingAccuracy):.2f}%")
-    logger.info("-" * 30)   
+    logger.info("-" * 30)
 
     loadedDict = torch.load(network.savePath.joinpath(f"{network.name}-BestFromBatch-{id}.pth"))
-    logger.info(loadedDict["maxVal"])
+    maxVal = loadedDict["maxVal"]
+    logger.info(f"NormalizationValue: {maxVal}")
+    logger.info(f"Labels {trainingDataset.labelStrings}")
 
     confMatAx = plt.subplot()
+    confMatAx.tick_params(axis="x", labelsize=18)
+    confMatAx.tick_params(axis="y", labelsize=18)
     confMatAx.set_xlabel('Predicted labels', fontsize=18)
     confMatAx.set_ylabel('True labels', fontsize=18)
     disp = ConfusionMatrixDisplay(confusion_matrix=bestConfMat).plot(colorbar=False, ax=confMatAx)
-    plt.savefig(str(utils.getDataRoot().joinpath(f"Figures/ConfMat_train{network.name}.png")))
-    disp.plot()
-
+    plt.savefig(str(utils.getDataRoot().joinpath(f"Figures/ConfMat_train{network.name}_{id}.png")))
     plt.show()

@@ -11,7 +11,7 @@ function [stftSignal, fs, f, t] = extractSTFTFeatures(values, fs, nFFT, bound, l
     % Get STFT original
     [stftOriginal, f, t] = stft(values,fs,window=hann(nFFT),FFTLength=nFFT,FrequencyRange="onesided");
     stftOriginalMag = abs(stftOriginal);
-    %stftOriginalMag(stftOriginalMag<0.1) = 0;
+    stftOriginalMag(stftOriginalMag<0.1) = 0;
     stftOriginalMag = movmean(stftOriginalMag,3);
 
     stftSignal = stftOriginalMag(1:bound,:);

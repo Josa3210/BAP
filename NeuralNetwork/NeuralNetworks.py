@@ -148,7 +148,7 @@ class NeuralNetworkTKEO2(TrainableNN):
             nn.ReLU(),
             nn.Dropout(self.dropoutRate),
             nn.Linear(512, 128),
-            nn.Softmax(dim=1)
+            nn.ReLU()
         )
 
         inputS2 = self.calcInputSize(sFeatures, 2)
@@ -158,7 +158,7 @@ class NeuralNetworkTKEO2(TrainableNN):
             nn.ReLU(),
             nn.Dropout(self.dropoutRate),
             nn.Linear(256, 128),
-            nn.Softmax(dim=1)
+            nn.ReLU()
         )
 
         inputS3 = self.calcInputSize(sFeatures, 3)
@@ -168,7 +168,7 @@ class NeuralNetworkTKEO2(TrainableNN):
             nn.ReLU(),
             nn.Dropout(self.dropoutRate),
             nn.Linear(128, 128),
-            nn.Softmax(dim=1)
+            nn.ReLU()
         )
 
         inputS4 = self.calcInputSize(sFeatures, 4)
@@ -178,7 +178,7 @@ class NeuralNetworkTKEO2(TrainableNN):
             nn.ReLU(),
             nn.Dropout(self.dropoutRate),
             nn.Linear(128, 128),
-            nn.Softmax(dim=1)
+            nn.ReLU()
         )
 
         # These layers are responsible for classification after being passed through the convLayers

@@ -580,7 +580,7 @@ class TrainableNN(InterfaceNN):
 
         return results
 
-    def funcToOptimize(self, lr, dr: int = None, epochs: int = 350):
+    def funcToOptimize(self, lr, dr: int = None, epochs: int = 200):
         if dr is None:
             dr = self.dropoutRate
 
