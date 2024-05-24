@@ -1,4 +1,4 @@
-function [sFiltered, SNRDiff] = spectralSubtraction(signal, profile, fs, nFFT, nFramesAveraged, overlap, residualNoiseReduction)
+function [sFiltered] = spectralSubtraction(signal, profile, fs, nFFT, nFramesAveraged, overlap, residualNoiseReduction)
     arguments
         signal (:,1) double
         profile (:,1) double
@@ -12,7 +12,7 @@ function [sFiltered, SNRDiff] = spectralSubtraction(signal, profile, fs, nFFT, n
     window = hann(nFFT);
     nOverlap= floor(nFFT * overlap);
 
-     % Get the envelopes
+    % Get the envelopes
     maxVal = movmean(movmax(signal,900),5000);
     minVal = movmean(movmin(signal,900),5000);
 
@@ -35,6 +35,7 @@ function [sFiltered, SNRDiff] = spectralSubtraction(signal, profile, fs, nFFT, n
      % Calculate average noise
     avgNoise = sum(sNoiseMag,2)/size(sNoiseMag,2);
     avgNoiseMat = avgNoise .* ones(1,size(sSignal,2));
+    
 
 
     % Average frames
@@ -71,15 +72,4 @@ function [sFiltered, SNRDiff] = spectralSubtraction(signal, profile, fs, nFFT, n
    
     sFiltered = real(istft(sExtracted,fs,Window=window,OverlapLength=nOverlap,FFTLength=nFFT));
     sFiltered = sFiltered(end/4:end*3/4);
-
-    % Calculate SNR
-    noiseSNR = sqrt(sum(profile)^2/size(profile,1));
-    signalSNR = sqrt(sum(signal)^2/size(signal,1));
-    filteredSNR = sqrt(sum(sFiltered)^2/size(sFiltered,1));
-
-    SNRref = 20*log(signalSNR/noiseSNR);
-    SNRfilt = 20*log(filteredSNR/noiseSNR);
-
-    SNRDiff = SNRref - SNRfilt;
 end
-
