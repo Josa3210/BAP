@@ -49,7 +49,7 @@ This project has 6 main directories that contain the following files/directories
 - **[NeuralNetwork](./NeuralNetwork)**
 
     [EarlyStopper](./NeuralNetwork/EarlyStopper.py) class that will stop the training loop of a model once a certain criteria is met.\
-    [InterfaceNN](./NeuralNetwork/InterfaceNN.py) interface class from where all other neural networks are derived. Contains also TrainableNN class that holds functions for optimizing, training and testing.,<>
+    [InterfaceNN](./NeuralNetwork/InterfaceNN.py) interface class from where all other neural networks are derived. Contains also TrainableNN class that holds functions for optimizing, training and testing.\
     [NeuralNetworks](./NeuralNetwork/NeuralNetworks.py) class that contains the different architectures created for person identification.
 
 - **[Scripts](./Scripts)** 
