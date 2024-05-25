@@ -15,8 +15,8 @@ from sklearn.model_selection import KFold
 from torch import nn, device, Tensor
 from torch.utils.data import Dataset, SubsetRandomSampler, DataLoader, random_split
 
-import utils
-from CustomLogger import CustomLogger
+from Tools import utils
+from Tools.CustomLogger import CustomLogger
 from NeuralNetwork.EarlyStopper import EarlyStopper
 
 

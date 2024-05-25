@@ -12,12 +12,12 @@ from matplotlib import pyplot as plt
 from scipy.io import wavfile
 from torch.utils.data import Dataset, DataLoader
 
-import utils
-from CustomLogger import CustomLogger
-from featureExtraction import Transforms
-from featureExtraction.FeatureCacher import FeatureCacher
-from featureExtraction.FeatureExtractor import FeatureExtractor, Filter, FeatureExtractorTKEO
-from featureExtraction.Transforms import AddOffset
+
+from Tools.CustomLogger import CustomLogger
+from FeatureExtraction import Transforms
+from FeatureExtraction.FeatureCacher import FeatureCacher
+from FeatureExtraction.FeatureExtractor import FeatureExtractor, Filter, FeatureExtractorTKEO
+from FeatureExtraction.Transforms import AddOffset
 
 
 def plotFuncs(signals, fs, title: str = None, block: bool = True):

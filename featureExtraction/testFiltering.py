@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 from numpy import linspace
 from scipy.io import wavfile
 
-from featureExtraction.FeatureExtractor import FeatureExtractor, FeatureExtractorTKEO, Filter
+from FeatureExtraction.FeatureExtractor import FeatureExtractor, FeatureExtractorTKEO, Filter
 
 """
 Class to test out different filtering parameters

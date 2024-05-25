@@ -6,15 +6,14 @@ from matplotlib import pyplot as plt
 from sklearn.metrics import ConfusionMatrixDisplay
 from torch import nn
 
-import utils
-from CustomLogger import CustomLogger
+from Tools.CustomLogger import CustomLogger
 from NeuralNetwork.EarlyStopper import EarlyStopper
 from NeuralNetwork.NeuralNetworks import NeuralNetworkTKEO2, NeuralNetworkSTFT
-from Timer import Timer
-from featureExtraction.FeatureExtractor import FeatureExtractorTKEO, FeatureExtractorSTFT
-from featureExtraction.Transforms import AddOffset
-from footstepDataset.FootstepDataset import FootstepDataset
-from utils import getDataRoot
+from Tools.Timer import Timer
+from FeatureExtraction.FeatureExtractor import FeatureExtractorTKEO, FeatureExtractorSTFT
+from FeatureExtraction.Transforms import AddOffset
+from FootstepDataset.FootstepDataset import FootstepDataset
+from Tools.utils import getDataRoot
 
 """
 This function will train n times the same neural network and gather information about the results.
@@ -88,7 +87,7 @@ if __name__ == '__main__':
     #learningRate = result["lr"]
     learningRate = 0.001
     folds = 5
-    epochs = 20
+    epochs = 150
 
     # Initialise variables
     trainingResults = []
@@ -98,7 +97,7 @@ if __name__ == '__main__':
 
     bestResult = 0
     bestConfMat = None
-    id = 8
+    id = 9
 
     logger.info(network.dropoutRate)
     # Start training
@@ -107,7 +106,7 @@ if __name__ == '__main__':
     timer.start()
 
     for i in range(nTrainings):
-        validationResults, confMat = network.trainOnData(trainingData=trainingDataset, verbose=False, folds=folds, lr=learningRate, epochs=epochs, batchSize=batchSize, saveModel=True)
+        validationResults, confMat = network.trainOnData(trainingData=trainingDataset, verbose=False, folds=folds, lr=learningRate, epochs=epochs, batchSize=batchSize, saveModel=True, earlyStopper=earlyStopper)
 
         trainingResults.extend(validationResults["Loss"])
         trainingAccuracy.extend(validationResults["Accuracy"])
@@ -157,10 +156,8 @@ if __name__ == '__main__':
     logger.info(f"Labels {trainingDataset.labelStrings}")
 
     confMatAx = plt.subplot()
-    confMatAx.tick_params(axis="x", labelsize=18)
-    confMatAx.tick_params(axis="y", labelsize=18)
     confMatAx.set_xlabel('Predicted labels', fontsize=18)
     confMatAx.set_ylabel('True labels', fontsize=18)
     disp = ConfusionMatrixDisplay(confusion_matrix=bestConfMat).plot(colorbar=False, ax=confMatAx)
-    plt.savefig(str(utils.getDataRoot().joinpath(f"Figures/ConfMat_train{network.name}_{id}.png")))
+    plt.savefig(str(getDataRoot().joinpath(f"Figures/ConfMat_train{network.name}_{id}.png")))
     plt.show()

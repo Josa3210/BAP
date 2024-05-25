@@ -3,12 +3,11 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
-import plotly.graph_objects as go
 from torch.utils.data import DataLoader
-import utils
-from featureExtraction.FeatureExtractor import Filter, FeatureExtractorTKEO, FeatureExtractorSTFT
-from featureExtraction.Transforms import AddOffset
-from footstepDataset.FootstepDataset import FootstepDataset
+
+from FeatureExtraction.FeatureExtractor import Filter, FeatureExtractorTKEO, FeatureExtractorSTFT
+from FeatureExtraction.Transforms import AddOffset
+from FootstepDataset.FootstepDataset import FootstepDataset
 
 """
 In this function we checked what results we get for applying different transformations to our dataset.

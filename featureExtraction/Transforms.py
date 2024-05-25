@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-from CustomLogger import CustomLogger
+from Tools.CustomLogger import CustomLogger
 
 
 class Transform(ABC):

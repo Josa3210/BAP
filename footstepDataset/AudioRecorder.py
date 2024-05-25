@@ -8,7 +8,7 @@ from numpy import linspace
 from scipy.io.wavfile import write
 import time
 
-from CustomLogger import CustomLogger
+from Tools.CustomLogger import CustomLogger
 
 
 class CustomAudioRecorder:

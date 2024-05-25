@@ -6,14 +6,14 @@ from matplotlib import pyplot as plt
 from sklearn.metrics import ConfusionMatrixDisplay
 from torch import nn
 
-import utils
-from CustomLogger import CustomLogger
+
+from Tools.CustomLogger import CustomLogger
 from NeuralNetwork.NeuralNetworks import NeuralNetworkSTFT, NeuralNetworkTKEO2
-from Timer import Timer
-from featureExtraction.FeatureExtractor import FeatureExtractorSTFT, FeatureExtractorTKEO
-from featureExtraction.Transforms import AddOffset
-from footstepDataset.FootstepDataset import FootstepDataset
-from utils import getDataRoot
+from Tools.Timer import Timer
+from FeatureExtraction.FeatureExtractor import FeatureExtractorSTFT, FeatureExtractorTKEO
+from FeatureExtraction.Transforms import AddOffset
+from FootstepDataset.FootstepDataset import FootstepDataset
+from Tools.utils import getDataRoot
 
 
 def printDict(dict, logger: logging.Logger):
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     testDataset = FootstepDataset(testPath, fExtractor=featureExtractor, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache/TKEO"), transformer=transformer)
     # Create type of neural network
     network = NeuralNetworkSTFT(len(participants), testDataset.featureSize, nn.init.kaiming_uniform_)
-    network.loadModel(getDataRoot().joinpath(f"model/{network.name}-BestFromBatch-8.pth"))
+    network.loadModel(getDataRoot().joinpath(f"model/{network.name}-BestFromBatch-9.pth"))
     network.fExtractor = featureExtractor
 
     # Set training parameters
@@ -101,7 +101,7 @@ if __name__ == '__main__':
         confMatAx.set_xlabel('Predicted labels', fontsize=18)
         confMatAx.set_ylabel('True labels', fontsize=18)
         disp = ConfusionMatrixDisplay(confusion_matrix=confMat).plot(colorbar=False, ax=confMatAx)
-        plt.savefig(str(utils.getDataRoot().joinpath(f"Figures/ConfMat_test_{network.name}_SNR{round(avgSNR * 100)}.png")))
+        plt.savefig(str(getDataRoot().joinpath(f"Figures/ConfMat_test_{network.name}_SNR{round(avgSNR * 100)}.png")))
         plt.close()
 
     # After all the testing, we print out the different losses and accuracies over the averageSNR of that test loop

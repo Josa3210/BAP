@@ -3,12 +3,12 @@ from pathlib import Path
 
 import numpy as np
 
-import utils
+from Tools import utils
 from scipy.io import wavfile
 import os.path
 import matlab.engine
 
-from CustomLogger import CustomLogger
+from Tools.CustomLogger import CustomLogger
 
 
 class FeatureExtractor(ABC):
