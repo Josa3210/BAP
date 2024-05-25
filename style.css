@@ -6,25 +6,8 @@ body {
   margin: 0;
   padding: 20px;
   color: #333;
+  font-size: 12px;
 }
-
-h1 {
-  color: #B10097;
-  font-size: 3em;
-  text-align: center;
-}
-
-.T {
-  background-color: white;
-  border: 2px solid #B10097;
-  border-radius: 10px;
-  padding: 20px;
-  width: fit-content ;
-  margin: 0 auto;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
-  vertical-align: top;
-}
-
 h2 {
   color: #000000;
   text-align: center;
@@ -46,11 +29,14 @@ li {
   margin: 5px 0;
 }
 
+ul a {
+  color: #000000;
+}
+
 a {
   text-decoration: none;
   color: #B10097;
   font-weight: bold;
-  transition: color 0.3s;
 }
 
 a:hover {
@@ -70,10 +56,10 @@ a:visited:hover {
   border: 2px solid #B10097;
   border-radius: 10px;
   padding: 20px;
-  max-width: 800px;
+  width: fit-content ;
   margin: 0 auto;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
-  vertical-align: top;
+  vertical-align: center;
 }
 
 ul ul ul {
@@ -98,4 +84,25 @@ ul ul ul ul {
   width: 105%;
   height: auto;
   display: block;
+}
+
+.titleBlock {
+  line-height: 1.5em;
+}
+
+.titleBlock h1 {
+  color: #B10097;
+  font-size: 3.5em;
+  text-align: center;
+  line-height: 1.25em;
+}
+
+.titleBlock strong {
+  font-size: 2em;
+  line-height: 1.25em;
+}
+
+.ToC a {
+  font-size: 1.75em;
+  line-height: 1.1em;
 }
