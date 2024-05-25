@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-import utils
+from Tools import PathFinder
 from CustomLogger import CustomLogger
 from NeuralNetwork.InterfaceNN import InterfaceNN
 from NeuralNetwork.NeuralNetworks import NeuralNetworkSTFT
@@ -143,7 +143,7 @@ class Application:
 # Here we set everything up to use the application and do multiple predictions in sequence.
 # After every prediction, the results are shared and the program waits to take another recording
 if __name__ == '__main__':
-    modelPath: Path = utils.getDataRoot().joinpath("model").joinpath("NeuralNetworkSTFT-BestFromBatch-6.pth")
+    modelPath: Path = PathFinder.getDataRoot().joinpath("model").joinpath("NeuralNetworkSTFT-BestFromBatch-6.pth")
     application: Application = Application(modelPath=modelPath, loggingLevel=logging.DEBUG)
     inputStr: str = ""
     print("\n" + "=" * 100)

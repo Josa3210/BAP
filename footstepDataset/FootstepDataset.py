@@ -204,9 +204,9 @@ if __name__ == '__main__':
     filterExtr = Filter()
     transformer = AddOffset(amount=2)
 
-    noiseProfilePath = utils.getDataRoot().joinpath(r"noiseProfile\noiseProfile1.wav")
-    recordingsPath = utils.getDataRoot().joinpath("recordings")
-    testCachePath: Path = utils.getDataRoot().joinpath(r"cache\TKEO")
+    noiseProfilePath = PathFinder.getDataRoot().joinpath(r"noiseProfile\noiseProfile1.wav")
+    recordingsPath = PathFinder.getDataRoot().joinpath("recordings")
+    testCachePath: Path = PathFinder.getDataRoot().joinpath(r"cache\TKEO")
     # offsetAdder = AddOffset(2, maxTimeOffset=0.5)
     filterExtr.noiseProfile = noiseProfilePath
     personFilter = ["ann","Lieve"]

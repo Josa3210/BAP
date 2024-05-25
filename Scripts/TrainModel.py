@@ -13,7 +13,7 @@ from Tools.Timer import Timer
 from FeatureExtraction.FeatureExtractor import FeatureExtractorTKEO, FeatureExtractorSTFT
 from FeatureExtraction.Transforms import AddOffset
 from FootstepDataset.FootstepDataset import FootstepDataset
-from Tools.utils import getDataRoot
+from Tools.PathFinder import getDataRoot
 
 """
 This function will train n times the same neural network and gather information about the results.

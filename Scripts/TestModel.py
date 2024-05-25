@@ -13,7 +13,7 @@ from Tools.Timer import Timer
 from FeatureExtraction.FeatureExtractor import FeatureExtractorSTFT, FeatureExtractorTKEO
 from FeatureExtraction.Transforms import AddOffset
 from FootstepDataset.FootstepDataset import FootstepDataset
-from Tools.utils import getDataRoot
+from Tools.PathFinder import getDataRoot
 
 
 def printDict(dict, logger: logging.Logger):

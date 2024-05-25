@@ -3,7 +3,7 @@ import torch
 from torch import nn
 
 from NeuralNetwork.NeuralNetworks import NeuralNetworkSTFT
-from Tools import utils
+from Tools import PathFinder
 
 
 def showTKEO(model: nn.Module):
@@ -94,7 +94,7 @@ if __name__ == '__main__':
     # Create a certain type of network
     model = NeuralNetworkSTFT(9, [50, 169])
     # Load in the weights of a previously trained model
-    model.loadModel(utils.getDataRoot().joinpath("model/NeuralNetworkSTFT-BestFromBatch-9.pth"))
+    model.loadModel(PathFinder.getDataRoot().joinpath("model/NeuralNetworkSTFT-BestFromBatch-9.pth"))
     # Show the filters
     showSTFT(model)
     # showTKEO(model)

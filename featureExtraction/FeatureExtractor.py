@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 
-from Tools import utils
+from Tools import PathFinder
 from scipy.io import wavfile
 import os.path
 import matlab.engine
@@ -57,8 +57,8 @@ class FeatureExtractor(ABC):
     @abstractmethod
     def __init__(self, funcPath: str = "extractTKEOFeatures.m", filterPath: str = "spectralSubtraction.m", noiseProfile: list[float] = None):
         # Get the directory where this file is locate and add the trainingPath to the function to it
-        self.funcPath = utils.getFunctionPath().joinpath(funcPath)
-        self.filterPath = utils.getFunctionPath().joinpath(filterPath)
+        self.funcPath = PathFinder.getFunctionPath().joinpath(funcPath)
+        self.filterPath = PathFinder.getFunctionPath().joinpath(filterPath)
         self.logger = CustomLogger.getLogger(__name__)
         self.eng = None
 
@@ -111,7 +111,7 @@ class FeatureExtractor(ABC):
         # Open the engine (takes a few seconds)
         self.eng = matlab.engine.start_matlab()
         # Set matlab directory to given directory
-        self.eng.cd(str(utils.getFunctionPath()))
+        self.eng.cd(str(PathFinder.getFunctionPath()))
 
 
 class FeatureExtractorTKEO(FeatureExtractor):

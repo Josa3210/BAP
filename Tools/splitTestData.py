@@ -1,7 +1,7 @@
 import glob
 import shutil
 import random
-import utils
+from Tools import PathFinder
 
 """
 This function splits the recorded files into 2 parts: test files and training files
@@ -11,12 +11,12 @@ Afterwards the function should not be called upon again
 """
 if __name__ == '__main__':
     # Get path where the different recordings are
-    startPath = utils.getDataRoot().joinpath("recordings")
+    startPath = PathFinder.getDataRoot().joinpath("recordings")
     searchPath = str(startPath) + r"\**"
 
     # Create the different destination paths
-    testPath = utils.getDataRoot().joinpath("testData")
-    trainingPath = utils.getDataRoot().joinpath("trainingData")
+    testPath = PathFinder.getDataRoot().joinpath("testData")
+    trainingPath = PathFinder.getDataRoot().joinpath("trainingData")
 
     # Check all the directories containing gait recordings
     dirNames = [fn for fn in glob.glob(pathname=searchPath, recursive=False) if not fn.__contains__("noiseProfile")]

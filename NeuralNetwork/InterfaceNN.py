@@ -15,7 +15,7 @@ from sklearn.model_selection import KFold
 from torch import nn, device, Tensor
 from torch.utils.data import Dataset, SubsetRandomSampler, DataLoader, random_split
 
-from Tools import utils
+from Tools import PathFinder
 from Tools.CustomLogger import CustomLogger
 from NeuralNetwork.EarlyStopper import EarlyStopper
 
@@ -49,7 +49,7 @@ class InterfaceNN(nn.Module):
     def __init__(self, name: str):
         super().__init__()
         self.device = self.getDevice()
-        self.savePath = utils.getDataRoot().joinpath("model")
+        self.savePath = PathFinder.getDataRoot().joinpath("model")
         self.name = name
         self.fExtractor = None
         self.maxVal = None

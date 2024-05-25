@@ -3,7 +3,7 @@ from pathlib import Path
 
 import torch
 
-from Tools import utils
+from Tools import PathFinder
 
 
 class FeatureCacher:
@@ -94,6 +94,6 @@ class FeatureCacher:
 
 
 if __name__ == '__main__':
-    path = utils.getDataRoot().joinpath("testVDB")
+    path = PathFinder.getDataRoot().joinpath("testVDB")
     cacher = FeatureCacher(path)
     cacher.clearCache()
