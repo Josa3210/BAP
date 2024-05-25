@@ -1,0 +1,101 @@
+/* style.css */
+
+body {
+  font-family: Arial, sans-serif;
+  background-color: #ffffff;
+  margin: 0;
+  padding: 20px;
+  color: #333;
+}
+
+h1 {
+  color: #B10097;
+  font-size: 3em;
+  text-align: center;
+}
+
+.T {
+  background-color: white;
+  border: 2px solid #B10097;
+  border-radius: 10px;
+  padding: 20px;
+  width: fit-content ;
+  margin: 0 auto;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+  vertical-align: top;
+}
+
+h2 {
+  color: #000000;
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 2.5em;
+}
+
+ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+ul ul {
+  margin-left: 20px;
+}
+
+li {
+  margin: 5px 0;
+}
+
+a {
+  text-decoration: none;
+  color: #B10097;
+  font-weight: bold;
+  transition: color 0.3s;
+}
+
+a:hover {
+  color: #ff4500;
+}
+
+a:visited {
+  color: #4b0082;
+}
+
+a:visited:hover {
+  color: #ff4500;
+}
+
+.container {
+  background-color: white;
+  border: 2px solid #B10097;
+  border-radius: 10px;
+  padding: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+  vertical-align: top;
+}
+
+ul ul ul {
+  margin-left: 20px;
+}
+
+ul ul ul ul {
+  margin-left: 20px;
+}
+
+.image-container {
+  width: 100px; /* Adjust size as needed */
+  height: 100px; /* Adjust size as needed */
+  overflow: hidden;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  float: right; /* Change to float: left; if you want the image on the left */
+  margin-left: 20px;
+}
+
+.image-container img {
+  width: 105%;
+  height: auto;
+  display: block;
+}
