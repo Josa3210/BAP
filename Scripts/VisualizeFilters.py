@@ -92,9 +92,9 @@ def showSTFT(model: nn.Module):
 
 if __name__ == '__main__':
     # Create a certain type of network
-    model = NeuralNetworkSTFT(9, [50, 169])
+    model = NeuralNetworkSTFT(9, [50, 156])
     # Load in the weights of a previously trained model
-    model.loadModel(PathFinder.getDataRoot().joinpath("model/NeuralNetworkSTFT-BestFromBatch-9.pth"))
+    model.loadModel(PathFinder.getDataRoot().joinpath("model/NeuralNetworkSTFT-BestFromBatch-10.pth"))
     # Show the filters
     showSTFT(model)
     # showTKEO(model)

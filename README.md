@@ -1,12 +1,10 @@
-Convert this markdown code to html code.
-
 <head>
     <link rel="stylesheet" href="./style.css">
 </head>
 <body>
 
 <div class=container>
-<div class=title>
+<div class=titleBlock>
 
 # BAP: Gait detection and identification using acoustic signatures
 

@@ -2,7 +2,7 @@
 
 body {
   font-family: Arial, sans-serif;
-  background-color: #ffffff;
+  background-color: #59024c;
   margin: 0;
   padding: 20px;
   color: #333;
@@ -10,7 +10,7 @@ body {
 }
 h2 {
   color: #000000;
-  text-align: center;
+  text-align: left;
   margin-bottom: 20px;
   font-size: 2.5em;
 }

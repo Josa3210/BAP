@@ -37,7 +37,7 @@ if __name__ == '__main__':
     noisePath = getDataRoot().joinpath(r"noiseProfile\noiseProfile2.wav")
 
     # Define the type of data and add noise profile for filtering
-    featureExtractor = FeatureExtractorSTFT()
+    featureExtractor = FeatureExtractorTKEO()
     featureExtractor.noiseProfile = noisePath
 
     # Define the type of transformation on the data
@@ -48,8 +48,8 @@ if __name__ == '__main__':
 
     testDataset = FootstepDataset(testPath, fExtractor=featureExtractor, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache/TKEO"), transformer=transformer)
     # Create type of neural network
-    network = NeuralNetworkSTFT(len(participants), testDataset.featureSize, nn.init.kaiming_uniform_)
-    network.loadModel(getDataRoot().joinpath(f"model/{network.name}-BestFromBatch-9.pth"))
+    network = NeuralNetworkTKEO2(len(participants), testDataset.featureSize, nn.init.kaiming_uniform_)
+    network.loadModel(getDataRoot().joinpath(f"model/{network.name}-BestFromBatch-10.pth"))
     network.fExtractor = featureExtractor
 
     # Set training parameters
