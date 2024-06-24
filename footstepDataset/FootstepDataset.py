@@ -12,11 +12,11 @@ from matplotlib import pyplot as plt
 from scipy.io import wavfile
 from torch.utils.data import Dataset, DataLoader
 
-
+from Tools import PathFinder
 from Tools.CustomLogger import CustomLogger
 from FeatureExtraction import Transforms
 from FeatureExtraction.FeatureCacher import FeatureCacher
-from FeatureExtraction.FeatureExtractor import FeatureExtractor, Filter, FeatureExtractorTKEO
+from FeatureExtraction.FeatureExtractor import FeatureExtractor, Filter, FeatureExtractorTKEO, FeatureExtractorSTFT
 from FeatureExtraction.Transforms import AddOffset
 
 
@@ -201,7 +201,7 @@ class FootstepDataset(Dataset):
 
 
 if __name__ == '__main__':
-    filterExtr = Filter()
+    filterExtr = FeatureExtractorSTFT()
     transformer = AddOffset(amount=2)
 
     noiseProfilePath = PathFinder.getDataRoot().joinpath(r"noiseProfile\noiseProfile1.wav")

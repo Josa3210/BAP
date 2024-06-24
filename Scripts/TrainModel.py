@@ -8,7 +8,7 @@ from torch import nn
 
 from Tools.CustomLogger import CustomLogger
 from NeuralNetwork.EarlyStopper import EarlyStopper
-from NeuralNetwork.NeuralNetworks import NeuralNetworkTKEO2, NeuralNetworkSTFT
+from NeuralNetwork.NeuralNetworks import NeuralNetworkTKEO2, NeuralNetworkSTFT, NeuralNetworkTKEO
 from Tools.Timer import Timer
 from FeatureExtraction.FeatureExtractor import FeatureExtractorTKEO, FeatureExtractorSTFT
 from FeatureExtraction.Transforms import AddOffset
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     noisePath = getDataRoot().joinpath(r"noiseProfile\noiseProfile2.wav")
 
     # Define the type of data and add noise profile for filtering
-    filterExtr = FeatureExtractorSTFT()
+    filterExtr = FeatureExtractorTKEO()
     filterExtr.noiseProfile = noisePath
 
     # Add a transformation to the data for more datapoints
@@ -69,7 +69,7 @@ if __name__ == '__main__':
     trainingDataset = FootstepDataset(trainingPath, fExtractor=filterExtr, labelFilter=participants, cachePath=getDataRoot().joinpath(r"cache\TKEO"), transformer=transformer)
 
     # Create type of neural network
-    network = NeuralNetworkSTFT(len(participants), trainingDataset.featureSize, nn.init.kaiming_uniform_)
+    network = NeuralNetworkTKEO2(len(participants), trainingDataset.featureSize, nn.init.kaiming_uniform_)
     network.dropoutRate = 0.2
     network.maxVal = trainingDataset.maxVal
 
@@ -85,7 +85,7 @@ if __name__ == '__main__':
     nTrainings = 10
     batchSize = 32
     #learningRate = result["lr"]
-    learningRate = 0.001
+    learningRate = 0.001294
     folds = 5
     epochs = 150
 
@@ -97,7 +97,7 @@ if __name__ == '__main__':
 
     bestResult = 0
     bestConfMat = None
-    id = 9
+    id = 10
 
     logger.info(network.dropoutRate)
     # Start training

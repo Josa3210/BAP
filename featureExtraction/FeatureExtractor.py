@@ -153,7 +153,7 @@ class FeatureExtractorTKEO(FeatureExtractor):
             return
 
         profile = self.noiseProfile
-        nFFT = 256
+        nFFT = 200
         nFramesAveraged = 0
         overlap = 0.5  # Standard set to 0.5
         filteredSignal = self.eng.spectralSubtraction(signal, profile, fs, nFFT, nFramesAveraged, overlap)
@@ -197,7 +197,7 @@ class FeatureExtractorSTFT(FeatureExtractor):
         stft_features, fs_stft = stft_extractor.transform(filtered_signal, fs=44100)
     """
 
-    def __init__(self, funcPath: str = "extractSTFTFeatures.m", filterPath: str = "spectralSubtraction.m", noiseProfile: list[float] = None, nFFT: int = 4096, bound: int = 50):
+    def __init__(self, funcPath: str = "extractSTFTFeatures.m", filterPath: str = "spectralSubtraction.m", noiseProfile: list[float] = None, nFFT: int = 4410, bound: int = 50):
         super().__init__(funcPath, filterPath, noiseProfile)
         self.nFFT = nFFT
         self.bound = bound
@@ -231,7 +231,7 @@ class FeatureExtractorSTFT(FeatureExtractor):
         super().filter(signal, fs)
 
         profile = self.noiseProfile
-        nFFT = 256
+        nFFT = 200
         nFramesAveraged = 0
         overlap = 0.5  # Standard set to 0.5
         filteredSignal = self.eng.spectralSubtraction(signal, profile, fs, nFFT, nFramesAveraged, overlap)
@@ -284,7 +284,7 @@ class Filter(FeatureExtractor):
 
     def __init__(self, funcPath: str = "extractTKEOFeatures.m", filterPath: str = "spectralSubtraction.m", noiseProfile: list[float] = None):
         super().__init__(funcPath, filterPath, noiseProfile)
-        self.nFFT = 256
+        self.nFFT = 200
         self.nFramesAveraged = 0
         self.overlap = 0.5  # Standard set to 0.5
 

@@ -1,40 +1,24 @@
 /* style.css */
 
 body {
-  font-family: Arial, sans-serif;
+  font-family: Helvetica, sans-serif;
   background-color: #ffffff;
   margin: 0;
   padding: 20px;
   color: #333;
-}
-
-h1 {
-  color: #B10097;
-  font-size: 3em;
-  text-align: center;
-}
-
-.T {
-  background-color: white;
-  border: 2px solid #B10097;
-  border-radius: 10px;
-  padding: 20px;
-  width: fit-content ;
-  margin: 0 auto;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
-  vertical-align: top;
+  font-size: 14px;
 }
 
 h2 {
   color: #000000;
-  text-align: center;
-  margin-bottom: 20px;
+  text-align: left;
   font-size: 2.5em;
 }
 
 ul {
-  list-style-type: none;
-  padding: 0;
+  list-style-type: square;
+  padding-top: -10px;
+  padding-left: 10px;
   margin: 0;
 }
 
@@ -46,15 +30,19 @@ li {
   margin: 5px 0;
 }
 
+ul a {
+  color: #000000;
+  list-style-type: none;
+}
+
 a {
   text-decoration: none;
   color: #B10097;
   font-weight: bold;
-  transition: color 0.3s;
 }
 
 a:hover {
-  color: #ff4500;
+  color: #B10097;
 }
 
 a:visited {
@@ -62,18 +50,16 @@ a:visited {
 }
 
 a:visited:hover {
-  color: #ff4500;
+  color: #B10097;
 }
 
 .container {
   background-color: white;
-  border: 2px solid #B10097;
-  border-radius: 10px;
   padding: 20px;
-  max-width: 800px;
+  width: fit-content ;
   margin: 0 auto;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
-  vertical-align: top;
+
+  vertical-align: center;
 }
 
 ul ul ul {
@@ -98,4 +84,45 @@ ul ul ul ul {
   width: 105%;
   height: auto;
   display: block;
+}
+
+.titleBlock {
+  line-height: 1em;
+}
+
+.titleBlock h1 {
+  color: #B10097;
+  font-size: 3.5em;
+  text-align: left;
+}
+
+.titleBlock strong {
+  font-size: 2em;
+  text-align: center;
+  color: #333;
+}
+
+.ToC a {
+  font-size: 1.75em;
+  line-height: 1.1em;
+}
+
+.Desc {
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.Structure ul {
+  font-size: 14px;
+  list-style-type: square;
+}
+
+.GS {
+  font-size: 14px;
+}
+
+.GS ul {
+  margin-top: -10px;
+  margin-left: 15px;
+  list-style-type: square;
 }

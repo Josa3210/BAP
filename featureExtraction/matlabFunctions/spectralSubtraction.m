@@ -2,7 +2,7 @@ function [sFiltered] = spectralSubtraction(signal, profile, fs, nFFT, nFramesAve
     arguments
         signal (:,1) double
         profile (:,1) double
-        fs (1,1) int16
+        fs (1,1) int32
         nFFT (1,1) int16
         nFramesAveraged (1,1) int16
         overlap (1,1) double = 0.5
@@ -65,11 +65,5 @@ function [sFiltered] = spectralSubtraction(signal, profile, fs, nFFT, nFramesAve
 
     % Reconstruct the signal
     sExtracted = sExtracted .* sSignalAngInfo;
-
-    % Enlarge extracted signal for better reconstruction
-    halfEnd = floor(size(sExtracted,2)/2);
-    sExtracted = [sExtracted(:,halfEnd:end), sExtracted, sExtracted(:,1:halfEnd-1)];
-   
     sFiltered = real(istft(sExtracted,fs,Window=window,OverlapLength=nOverlap,FFTLength=nFFT));
-    sFiltered = sFiltered(end/4:end*3/4);
 end

@@ -6,11 +6,11 @@ import numpy as np
 import torch
 
 from Tools import PathFinder
-from CustomLogger import CustomLogger
+from Tools import CustomLogger
 from NeuralNetwork.InterfaceNN import InterfaceNN
 from NeuralNetwork.NeuralNetworks import NeuralNetworkSTFT
-from audioRecording.AudioRecorder import CustomAudioRecorder
-from featureExtraction.FeatureExtractor import FeatureExtractorSTFT
+from FootstepDataset.AudioRecorder import CustomAudioRecorder
+from FeatureExtraction.FeatureExtractor import FeatureExtractorSTFT
 
 
 class Application:
@@ -62,7 +62,7 @@ class Application:
 
         # Setup of audio recorder
         self.logger.debug("Installing audio recorder")
-        audioSavePath: Path = utils.getDataRoot().joinpath("application\saveFiles")
+        audioSavePath: Path = PathFinder.getDataRoot().joinpath("application\saveFiles")
         self.sampleRate = sampleRate
         self.recorder: CustomAudioRecorder = CustomAudioRecorder(str(audioSavePath), self.sampleRate, 1, level=loggingLevel)
 
@@ -143,7 +143,7 @@ class Application:
 # Here we set everything up to use the application and do multiple predictions in sequence.
 # After every prediction, the results are shared and the program waits to take another recording
 if __name__ == '__main__':
-    modelPath: Path = PathFinder.getDataRoot().joinpath("model").joinpath("NeuralNetworkSTFT-BestFromBatch-6.pth")
+    modelPath: Path = PathFinder.getDataRoot().joinpath("model").joinpath("NeuralNetworkSTFT-BestFromBatch-10.pth")
     application: Application = Application(modelPath=modelPath, loggingLevel=logging.DEBUG)
     inputStr: str = ""
     print("\n" + "=" * 100)
